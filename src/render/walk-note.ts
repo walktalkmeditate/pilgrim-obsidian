@@ -50,6 +50,41 @@ function recordingHeading(walkStart: Date, rec: VoiceRecording): string {
   return `### ${minutesInto(walkStart, rec.startDate)} min in${enhanced}`
 }
 
+// Clock time in UTC — the .pilgrim carries no timezone, so UTC is the only
+// deterministic rendering (labelled as such in the note).
+function clockUTC(d: Date): string {
+  const hh = String(d.getUTCHours()).padStart(2, '0')
+  const mm = String(d.getUTCMinutes()).padStart(2, '0')
+  return `${hh}:${mm}`
+}
+
+// Average pace in min/km from the reliable distance + active-duration stats
+// (the raw route speeds[] array is unpopulated and its unit is unverified).
+function paceMinPerKm(distanceMeters: number, activeSeconds: number): number | null {
+  if (distanceMeters <= 0 || activeSeconds <= 0) return null
+  return Math.round(((activeSeconds / 60) / (distanceMeters / 1000)) * 10) / 10
+}
+
+interface Waypoint {
+  label: string
+  timestamp?: number
+}
+
+// Pinned waypoints are Point features tagged markerType 'waypoint'. Only
+// labelled ones become [[links]]. The per-feature timestamp is epoch SECONDS
+// (the parser does not ×1000 it, unlike the LineString timestamps array).
+function waypointsOf(walk: Walk): Waypoint[] {
+  return walk.route.features
+    .filter(
+      (f) =>
+        f.geometry.type === 'Point' &&
+        f.properties.markerType === 'waypoint' &&
+        typeof f.properties.label === 'string' &&
+        (f.properties.label as string).length > 0,
+    )
+    .map((f) => ({ label: f.properties.label as string, timestamp: f.properties.timestamp }))
+}
+
 function renderFrontmatter(walk: Walk, opts: RenderOptions): Record<string, FrontmatterValue> {
   const fm: Record<string, FrontmatterValue> = {
     'waymark-id': walk.id,
@@ -89,13 +124,31 @@ function renderBody(walk: Walk): { body: string; attachments: AttachmentRef[] } 
     }
   }
 
+  const waypoints = waypointsOf(walk)
+  if (waypoints.length > 0) {
+    lines.push('## Moments', '')
+    for (const wp of waypoints) {
+      const at =
+        typeof wp.timestamp === 'number'
+          ? `${minutesInto(walk.startDate, new Date(wp.timestamp * 1000))} min in · `
+          : ''
+      lines.push(`- ${at}[[${wp.label}]]`)
+    }
+    lines.push('')
+  }
+
   lines.push('## On this walk', '')
   lines.push(`- **Distance:** ${km(walk.stats.distance)} km`)
   lines.push(`- **Duration:** ${minutes(walk.stats.activeDuration)} min`)
+  const pace = paceMinPerKm(walk.stats.distance, walk.stats.activeDuration)
+  if (pace !== null) lines.push(`- **Pace:** ${pace} min/km`)
   if (walk.stats.ascent || walk.stats.descent) {
     lines.push(
       `- **Ascent:** ${Math.round(walk.stats.ascent)} m · **Descent:** ${Math.round(walk.stats.descent)} m`,
     )
+  }
+  if (typeof walk.stats.steps === 'number' && walk.stats.steps > 0) {
+    lines.push(`- **Steps:** ${walk.stats.steps}`)
   }
   if (walk.stats.talkDuration > 0) {
     lines.push(`- **Spoken:** ${minutes(walk.stats.talkDuration)} min`)
@@ -103,15 +156,36 @@ function renderBody(walk: Walk): { body: string; attachments: AttachmentRef[] } 
   if (walk.stats.meditateDuration > 0) {
     lines.push(`- **Meditated:** ${minutes(walk.stats.meditateDuration)} min`)
   }
-  if (walk.weather) {
-    lines.push(
-      `- **Weather:** ${walk.weather.condition.replace(/_/g, ' ')}, ${walk.weather.temperature}°C`,
-    )
-  }
+  lines.push(`- **Time:** ${clockUTC(walk.startDate)}–${clockUTC(walk.endDate)} UTC`)
   if (walk.celestial?.lunarPhase?.name) {
     lines.push(`- **Moon:** ${walk.celestial.lunarPhase.name}`)
   }
   lines.push('')
+
+  const timeline = [
+    ...walk.activities.map((a) => ({ start: a.startDate, end: a.endDate, kind: a.type as string })),
+    ...walk.pauses.map((p) => ({ start: p.startDate, end: p.endDate, kind: 'pause' })),
+  ].sort((a, b) => a.start.getTime() - b.start.getTime())
+  if (timeline.length > 0) {
+    lines.push('## Timeline', '')
+    for (const seg of timeline) {
+      const mins = Math.max(1, Math.round((seg.end.getTime() - seg.start.getTime()) / 60000))
+      lines.push(`- ${minutesInto(walk.startDate, seg.start)} min in · ${seg.kind} (${mins} min)`)
+    }
+    lines.push('')
+  }
+
+  if (walk.weather) {
+    lines.push('## Weather', '')
+    lines.push(`- ${walk.weather.condition.replace(/_/g, ' ')}, ${walk.weather.temperature}°C`)
+    if (typeof walk.weather.humidity === 'number') {
+      lines.push(`- Humidity: ${Math.round(walk.weather.humidity * 100)}%`)
+    }
+    if (typeof walk.weather.windSpeed === 'number') {
+      lines.push(`- Wind: ${walk.weather.windSpeed} m/s`)
+    }
+    lines.push('')
+  }
 
   const reflectionText = walk.reflection?.text?.trim()
   if (reflectionText && reflectionText.length > 0) {

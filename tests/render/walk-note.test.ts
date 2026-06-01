@@ -71,7 +71,7 @@ describe('renderWalk', () => {
 
     // #then no empty sections or stray labels
     expect(body).not.toContain('**Intention**')
-    expect(body).not.toContain('**Weather:**')
+    expect(body).not.toContain('## Weather')
     expect(body).not.toContain('## Haiku')
     // core sections still present
     expect(body).toContain('## Reflection')
@@ -141,5 +141,50 @@ describe('renderWalk', () => {
 
     // #when rendered #then it falls back to the generic heading
     expect(renderWalk(walk, OPTS).body).toContain('## Written reflection')
+  })
+
+  it('renders waypoints as linked Moments with minutes-in (U1)', async () => {
+    // #given the fixture's two labelled waypoints (Peaceful @+12min, Grateful @+36min)
+    const { body } = renderWalk(await walkFrom(), OPTS)
+    expect(body).toContain('## Moments')
+    expect(body).toContain('12 min in · [[Peaceful]]')
+    expect(body).toContain('[[Grateful]]')
+  })
+
+  it('renders pace from distance/duration, steps, and a UTC time range (U1)', async () => {
+    // #given the fixture (5.4321 km / 3600 s active, 7200 steps, 16:00–17:00 UTC)
+    const { body } = renderWalk(await walkFrom(), OPTS)
+    expect(body).toContain('**Pace:** 11 min/km')
+    expect(body).toContain('**Steps:** 7200')
+    expect(body).toContain('**Time:** 16:00–17:00 UTC')
+  })
+
+  it('renders a timeline and full weather (U1)', async () => {
+    const { body } = renderWalk(await walkFrom(), OPTS)
+    expect(body).toContain('## Timeline')
+    expect(body).toContain('meditate')
+    expect(body).toContain('pause')
+    expect(body).toContain('## Weather')
+    expect(body).toContain('partly cloudy, 18.5°C')
+    expect(body).toContain('Humidity: 65%')
+    expect(body).toContain('Wind: 3.2 m/s')
+  })
+
+  it('guards a waypoint with no timestamp and omits Moments when there are none (U1)', async () => {
+    // #given waypoints stripped of their timestamps
+    const walk = await walkFrom()
+    for (const f of walk.route.features) {
+      if (f.properties.markerType === 'waypoint') {
+        delete (f.properties as { timestamp?: number }).timestamp
+      }
+    }
+    const withWp = renderWalk(walk, OPTS).body
+    expect(withWp).toContain('[[Peaceful]]')
+    expect(withWp).not.toContain('Invalid Date')
+
+    // #and a walk with no waypoint features → no Moments section
+    const walk2 = await walkFrom()
+    walk2.route = { type: 'FeatureCollection', features: [] }
+    expect(renderWalk(walk2, OPTS).body).not.toContain('## Moments')
   })
 })
