@@ -1,0 +1,10 @@
+{
+  "id": "waymark",
+  "name": "Waymark",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Import your Pilgrim walks (.pilgrim) into Obsidian as linkable Markdown notes — your transcribed reflections become searchable, linkable text.",
+  "author": "momentmaker",
+  "authorUrl": "https://github.com/momentmaker/pilgrim-obsidian",
+  "isDesktopOnly": false
+}
