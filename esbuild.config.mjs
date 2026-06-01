@@ -1,10 +1,10 @@
 import esbuild from 'esbuild'
 import process from 'process'
-import builtins from 'builtin-modules'
+import { builtinModules } from 'node:module'
 
 const banner = `/*
 Waymark — generated bundle. Do not edit directly.
-Source: https://github.com/momentmaker/pilgrim-obsidian
+Source: https://github.com/walktalkmeditate/pilgrim-obsidian
 */`
 
 const prod = process.argv[2] === 'production'
@@ -27,7 +27,8 @@ const context = await esbuild.context({
     '@lezer/common',
     '@lezer/highlight',
     '@lezer/lr',
-    ...builtins,
+    ...builtinModules,
+    ...builtinModules.map((m) => `node:${m}`),
   ],
   format: 'cjs',
   target: 'es2021',

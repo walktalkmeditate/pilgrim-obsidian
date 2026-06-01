@@ -1,6 +1,6 @@
 {
   "name": "waymark",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Import your Pilgrim walks (.pilgrim) into Obsidian as linkable Markdown notes.",
   "main": "main.js",
   "scripts": {
@@ -22,7 +22,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.17",
-    "builtin-modules": "^4.0.0",
     "esbuild": "^0.25.5",
     "obsidian": "latest",
     "typescript": "^5.8.3",
