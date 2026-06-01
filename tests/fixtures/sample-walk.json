@@ -1,0 +1,135 @@
+{
+  "schemaVersion": "1.0",
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "type": "walking",
+  "startDate": 1710000000,
+  "endDate": 1710003600,
+  "stats": {
+    "distance": 5432.1,
+    "steps": 7200,
+    "activeDuration": 3600,
+    "pauseDuration": 120,
+    "ascent": 45.2,
+    "descent": 38.1,
+    "burnedEnergy": 320.5,
+    "talkDuration": 180,
+    "meditateDuration": 300
+  },
+  "weather": {
+    "temperature": 18.5,
+    "condition": "partly_cloudy",
+    "humidity": 0.65,
+    "windSpeed": 3.2
+  },
+  "route": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [-8.5108, 42.8872, 370],
+            [-8.5130, 42.8860, 365],
+            [-8.5160, 42.8850, 355],
+            [-8.5190, 42.8840, 348],
+            [-8.5212, 42.8828, 340]
+          ]
+        },
+        "properties": {
+          "timestamps": [
+            1710000000,
+            1710000720,
+            1710001440,
+            1710002160,
+            1710003600
+          ]
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": { "type": "Point", "coordinates": [-8.5130, 42.8860] },
+        "properties": { "markerType": "waypoint", "label": "Peaceful", "icon": "leaf", "timestamp": 1710000720 }
+      },
+      {
+        "type": "Feature",
+        "geometry": { "type": "Point", "coordinates": [-8.5190, 42.8840] },
+        "properties": { "markerType": "waypoint", "label": "Grateful", "icon": "heart", "timestamp": 1710002160 }
+      }
+    ]
+  },
+  "pauses": [
+    {
+      "startDate": 1710001800,
+      "endDate": 1710001860,
+      "type": "manual"
+    }
+  ],
+  "activities": [
+    {
+      "type": "meditation",
+      "startDate": 1710002400,
+      "endDate": 1710002700
+    }
+  ],
+  "voiceRecordings": [
+    {
+      "startDate": 1710001200,
+      "endDate": 1710001380,
+      "duration": 180,
+      "transcription": "The morning light filters through the trees",
+      "wordsPerMinute": 120,
+      "isEnhanced": false
+    }
+  ],
+  "intention": "Walk with gratitude today",
+  "reflection": {
+    "style": "haiku",
+    "text": "Morning dew glistens...",
+    "celestialContext": {
+      "lunarPhase": {
+        "name": "Waxing Crescent",
+        "illumination": 0.15,
+        "age": 3.2,
+        "isWaxing": true
+      },
+      "planetaryPositions": [
+        {
+          "planet": "Sun",
+          "sign": "Pisces",
+          "degree": 19.5,
+          "isRetrograde": false
+        },
+        {
+          "planet": "Moon",
+          "sign": "Taurus",
+          "degree": 8.3,
+          "isRetrograde": false
+        }
+      ],
+      "planetaryHour": {
+        "planet": "Jupiter",
+        "planetaryDay": "Saturday"
+      },
+      "elementBalance": {
+        "fire": 0.2,
+        "earth": 0.35,
+        "air": 0.15,
+        "water": 0.3,
+        "dominant": "earth"
+      },
+      "seasonalMarker": "Spring Equinox",
+      "zodiacSystem": "tropical"
+    }
+  },
+  "heartRates": [
+    { "timestamp": 1710000000, "bpm": 72 }
+  ],
+  "workoutEvents": [
+    { "type": "start", "timestamp": 1710000000 }
+  ],
+  "favicon": "flame",
+  "isRace": false,
+  "isUserModified": false,
+  "finishedRecording": true
+}
