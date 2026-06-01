@@ -3,6 +3,7 @@ import JSZip from 'jszip'
 import { importPilgrim, summaryMessage, type ImportSummary } from '../../src/import/orchestrator'
 import { makeFakeApp } from '../support'
 import sampleWalk from '../fixtures/sample-walk.json'
+import sampleManifest from '../fixtures/sample-manifest.json'
 import editedManifest from '../fixtures/sample-manifest-edited.json'
 
 const SETTINGS = { walksFolder: 'Waymark', waymarkVersion: '0.1.0' }
@@ -48,6 +49,24 @@ describe('importPilgrim', () => {
     expect(second.updated).toBe(1)
     expect(fake.mdCount()).toBe(1)
   })
+
+  it('creates a note for each of multiple non-archived walks', async () => {
+    // #given an archive with two distinct walks (and no archived/edits)
+    const fake = makeFakeApp()
+    const zip = new JSZip()
+    zip.file('manifest.json', JSON.stringify(sampleManifest))
+    zip.file('walks/walk-one.json', JSON.stringify({ ...structuredClone(sampleWalk), id: 'walk-one' }))
+    zip.file('walks/walk-two.json', JSON.stringify({ ...structuredClone(sampleWalk), id: 'walk-two' }))
+    const buffer = await zip.generateAsync({ type: 'arraybuffer' })
+
+    // #when imported
+    const summary = await importPilgrim(fake.app, buffer, SETTINGS)
+
+    // #then both walks become distinct notes (same-date titles disambiguated)
+    expect(summary.created).toBe(2)
+    expect(summary.archivedSkipped).toBe(0)
+    expect(fake.mdCount()).toBe(2)
+  })
 })
 
 describe('summaryMessage', () => {
@@ -56,6 +75,7 @@ describe('summaryMessage', () => {
     updated: 0,
     skippedEdited: [],
     skippedNoMarkers: [],
+    failed: [],
     totalWalks: 0,
     archivedSkipped: 0,
   }
@@ -80,5 +100,10 @@ describe('summaryMessage', () => {
     })
     expect(msg).toContain('imported 2 walks (1 new, 1 updated)')
     expect(msg).toContain('1 skipped — edited')
+  })
+
+  it('reports markers-missing skips distinctly', () => {
+    const msg = summaryMessage({ ...base, totalWalks: 1, updated: 1, skippedNoMarkers: ['Walk X'] })
+    expect(msg).toContain('1 skipped — markers missing')
   })
 })

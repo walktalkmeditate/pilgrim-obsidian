@@ -94,4 +94,20 @@ describe('writeWalkNotes', () => {
     expect(tally.skippedNoMarkers).toHaveLength(1)
     expect(fake.files.get('Waymark/Manual note.md')).toContain('User wrote this, no markers.')
   })
+
+  it('isolates a failing walk and still imports the others', async () => {
+    // #given one walk that will throw during render and one valid walk
+    const fake = makeFakeApp()
+    const bad = await walkFrom({ id: 'bad-walk' })
+    ;(bad as { startDate: unknown }).startDate = undefined // renderWalk -> isoDate(undefined) throws
+    const good = await walkFrom({ id: 'good-walk' })
+
+    // #when imported together (bad first)
+    const tally = await writeWalkNotes(fake.app, [bad, good], new Map(), SETTINGS)
+
+    // #then the bad walk is recorded as failed and the good one still lands
+    expect(tally.failed).toEqual(['bad-walk'])
+    expect(tally.created).toBe(1)
+    expect(fake.mdCount()).toBe(1)
+  })
 })

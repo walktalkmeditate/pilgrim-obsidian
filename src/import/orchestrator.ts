@@ -81,6 +81,7 @@ export function summaryMessage(s: ImportSummary): string {
   ]
   if (s.skippedEdited.length > 0) parts.push(`${s.skippedEdited.length} skipped — edited`)
   if (s.skippedNoMarkers.length > 0) parts.push(`${s.skippedNoMarkers.length} skipped — markers missing`)
+  if (s.failed.length > 0) parts.push(`${s.failed.length} failed`)
   if (s.archivedSkipped > 0) parts.push(`${s.archivedSkipped} archived`)
   return parts.join(' · ')
 }

@@ -1,3 +1,4 @@
+import { parsePilgrimWalkJSON } from './pilgrim'
 import type { DeletableSection, Modification, PilgrimManifest, Walk } from './types'
 
 // Scope a manifest's modifications to a single walk. This filter is
@@ -46,7 +47,14 @@ export function applyWalkMods(walk: Walk, mods: Modification[]): Walk | null {
 
   const replace = mods.find((m) => m.op === 'replace_walk')
   if (replace) {
-    return { ...(replace.payload as { walk: Walk }).walk, isUserModified: true }
+    // The payload walk is raw archive JSON (epoch-seconds dates), not a parsed
+    // Walk — route it back through the parser so dates are normalized. Guard a
+    // malformed payload by keeping the originally parsed walk.
+    const raw = (replace.payload as { walk: unknown }).walk
+    if (raw && typeof raw === 'object' && typeof (raw as { id?: unknown }).id === 'string') {
+      return { ...parsePilgrimWalkJSON(raw), isUserModified: true }
+    }
+    return walk
   }
 
   let next: Walk = { ...walk }

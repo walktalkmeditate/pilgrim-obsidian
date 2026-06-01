@@ -14,7 +14,7 @@ describe('mergeNote — create', () => {
     // #then a managed block is produced with a seeded user area and a hash
     expect(result.decision).toBe('created')
     expect(result.content).toContain('%% waymark:begin id=w1')
-    expect(result.content).toContain('%% waymark:end %%')
+    expect(result.content).toContain('%% waymark:end id=w1 %%')
     expect(result.content).toContain('first body')
     expect(result.content).toContain('## Notes')
     expect(result.newHash.length).toBeGreaterThan(0)
@@ -154,5 +154,61 @@ describe('mergeFrontmatter', () => {
     expect(fm['waymark-distance-km']).toBe(5.4)
     expect(fm['waymark-block-hash']).toBe('HASH123')
     expect(fm['waymark-stale']).toBeUndefined()
+  })
+})
+
+describe('mergeNote — marker robustness', () => {
+  it('does not mistake a bare end-marker inside the body for the terminator', () => {
+    // #given a transcription that literally contains the bare end marker
+    const body = 'I wrote %% waymark:end %% in my notes today'
+    const first = created('w1', body)
+
+    // #then the region is terminated by the id-scoped marker, not the bare one
+    expect(first.content).toContain('%% waymark:end id=w1 %%')
+
+    // #when re-imported with the same body, the region is located correctly
+    const result = mergeNote({
+      existingContent: first.content!,
+      storedHash: first.newHash,
+      walkId: 'w1',
+      body,
+    })
+
+    // #then it updates rather than locking the note as edited
+    expect(result.decision).toBe('updated')
+  })
+
+  it('treats CRLF line endings as unchanged (Windows vaults)', () => {
+    // #given a created note whose region was rewritten with CRLF endings
+    const first = created('w1', 'first body')
+    const crlf = first.content!.replace(/\n/g, '\r\n')
+
+    // #when re-merged with the same body
+    const result = mergeNote({
+      existingContent: crlf,
+      storedHash: first.newHash,
+      walkId: 'w1',
+      body: 'first body',
+    })
+
+    // #then normalization keeps the hash matching — not a false "edited"
+    expect(result.decision).toBe('updated')
+  })
+
+  it('preserves a note that has markers but no stored hash', () => {
+    // #given a note with a valid managed region but no recorded hash
+    const first = created('w1', 'first body')
+
+    // #when re-merged with storedHash null (e.g. the user deleted the key)
+    const result = mergeNote({
+      existingContent: first.content!,
+      storedHash: null,
+      walkId: 'w1',
+      body: 'new body',
+    })
+
+    // #then it preserves rather than overwrites
+    expect(result.decision).toBe('skipped-edited')
+    expect(result.content).toBeNull()
   })
 })

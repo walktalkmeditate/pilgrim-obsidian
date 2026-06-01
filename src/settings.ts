@@ -28,9 +28,11 @@ export class WaymarkSettingTab extends PluginSettingTab {
         text
           .setPlaceholder('Waymark')
           .setValue(this.plugin.settings.walksFolder)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.walksFolder = value.trim() || DEFAULT_SETTINGS.walksFolder
-            await this.plugin.saveSettings()
+            this.plugin
+              .saveSettings()
+              .catch((e) => console.error('Waymark: failed to save settings', e))
           }),
       )
   }

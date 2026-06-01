@@ -44,6 +44,7 @@ export interface ImportTally {
   updated: number
   skippedEdited: string[]
   skippedNoMarkers: string[]
+  failed: string[]
 }
 
 interface IndexedNote {
@@ -117,49 +118,62 @@ export async function writeWalkNotes(
   photoBytes: Map<string, ArrayBuffer>,
   settings: WriterSettings,
 ): Promise<ImportTally> {
-  const tally: ImportTally = { created: 0, updated: 0, skippedEdited: [], skippedNoMarkers: [] }
+  const tally: ImportTally = {
+    created: 0,
+    updated: 0,
+    skippedEdited: [],
+    skippedNoMarkers: [],
+    failed: [],
+  }
   const index = buildIndex(app)
   const attachmentsFolder = `${settings.walksFolder}/attachments`
 
   for (const walk of walks) {
-    const rendered = renderWalk(walk, { provenance: settings.provenance })
-    const existing = index.get(walk.id) ?? null
-    const existingContent = existing ? await app.vault.read(existing.file) : null
-    const merge = mergeNote({
-      existingContent,
-      storedHash: existing?.storedHash ?? null,
-      walkId: walk.id,
-      body: rendered.body,
-    })
+    // Isolate each walk: a single malformed walk must not abort the whole import
+    // or discard the running tally.
+    try {
+      const rendered = renderWalk(walk, { provenance: settings.provenance })
+      const existing = index.get(walk.id) ?? null
+      const existingContent = existing ? await app.vault.read(existing.file) : null
+      const merge = mergeNote({
+        existingContent,
+        storedHash: existing?.storedHash ?? null,
+        walkId: walk.id,
+        body: rendered.body,
+      })
 
-    if (merge.decision === 'skipped-edited') {
-      tally.skippedEdited.push(rendered.title)
-      continue
-    }
-    if (merge.decision === 'skipped-no-markers') {
-      tally.skippedNoMarkers.push(rendered.title)
-      continue
-    }
+      if (merge.decision === 'skipped-edited') {
+        tally.skippedEdited.push(rendered.title)
+        continue
+      }
+      if (merge.decision === 'skipped-no-markers') {
+        tally.skippedNoMarkers.push(rendered.title)
+        continue
+      }
 
-    const content = merge.content
-    if (content === null) continue // defensive — create/update always carry content
+      const content = merge.content
+      if (content === null) continue // defensive — create/update always carry content
 
-    await writeAttachments(app, rendered.attachments, photoBytes, attachmentsFolder)
+      await writeAttachments(app, rendered.attachments, photoBytes, attachmentsFolder)
 
-    if (merge.decision === 'created') {
-      await ensureFolder(app, settings.walksFolder)
-      const path = uniqueNotePath(app, settings.walksFolder, rendered.title)
-      const file = await app.vault.create(path, content)
-      await app.fileManager.processFrontMatter(file, (fm) =>
-        mergeFrontmatter(fm, rendered.frontmatter, merge.newHash),
-      )
-      tally.created++
-    } else if (existing) {
-      await app.vault.process(existing.file, () => content)
-      await app.fileManager.processFrontMatter(existing.file, (fm) =>
-        mergeFrontmatter(fm, rendered.frontmatter, merge.newHash),
-      )
-      tally.updated++
+      if (merge.decision === 'created') {
+        await ensureFolder(app, settings.walksFolder)
+        const path = uniqueNotePath(app, settings.walksFolder, rendered.title)
+        const file = await app.vault.create(path, content)
+        await app.fileManager.processFrontMatter(file, (fm) =>
+          mergeFrontmatter(fm, rendered.frontmatter, merge.newHash),
+        )
+        tally.created++
+      } else if (existing) {
+        await app.vault.process(existing.file, () => content)
+        await app.fileManager.processFrontMatter(existing.file, (fm) =>
+          mergeFrontmatter(fm, rendered.frontmatter, merge.newHash),
+        )
+        tally.updated++
+      }
+    } catch (err) {
+      console.error(`Waymark: failed to import walk ${walk.id}`, err)
+      tally.failed.push(walk.id)
     }
   }
 

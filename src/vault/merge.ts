@@ -23,10 +23,14 @@ export interface MergeResult {
   newHash: string
 }
 
-const END_MARKER = '%% waymark:end %%'
-
 function beginMarker(walkId: string): string {
   return `%% waymark:begin id=${walkId} | Waymark-managed — edits here are not preserved; write below the end marker %%`
+}
+
+// The end marker is id-scoped so a stray bare '%% waymark:end %%' typed into a
+// transcription or reflection can't be mistaken for the region terminator.
+function endMarker(walkId: string): string {
+  return `%% waymark:end id=${walkId} %%`
 }
 
 // Normalize before hashing so benign reformatting by Obsidian (trailing
@@ -69,13 +73,16 @@ function skip(decision: MergeDecision, storedHash: string | null, fallback: stri
 export function mergeNote(input: MergeInput): MergeResult {
   const { existingContent, storedHash, walkId, body } = input
   const regionInner = `\n${body.trim()}\n`
+  const end = endMarker(walkId)
 
   if (existingContent === null) {
-    const block = `${beginMarker(walkId)}${regionInner}${END_MARKER}`
+    const block = `${beginMarker(walkId)}${regionInner}${end}`
     return { decision: 'created', content: `${block}\n\n## Notes\n`, newHash: hashRegion(regionInner) }
   }
 
-  const beginToken = `%% waymark:begin id=${walkId}`
+  // Match the begin marker with its trailing space so one walk id can't
+  // prefix-match another (id=w1 vs id=w12).
+  const beginToken = `%% waymark:begin id=${walkId} `
   const beginIdx = existingContent.indexOf(beginToken)
   if (beginIdx === -1) return skip('skipped-no-markers', storedHash, '')
 
@@ -84,7 +91,7 @@ export function mergeNote(input: MergeInput): MergeResult {
   if (beginClose === -1) return skip('skipped-no-markers', storedHash, '')
 
   const regionStart = beginClose + 2
-  const endIdx = existingContent.indexOf(END_MARKER, regionStart)
+  const endIdx = existingContent.indexOf(end, regionStart)
   if (endIdx === -1) return skip('skipped-no-markers', storedHash, '')
 
   const currentRegion = existingContent.slice(regionStart, endIdx)
