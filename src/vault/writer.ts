@@ -78,6 +78,20 @@ async function ensureFolder(app: AppLike, folder: string): Promise<void> {
   }
 }
 
+// Write a generated note once; never overwrite an existing file (the user owns it
+// after first creation). Returns whether it was created. Used for the dashboard.
+export async function writeFileIfAbsent(
+  app: AppLike,
+  path: string,
+  content: string,
+): Promise<boolean> {
+  if (app.vault.getAbstractFileByPath(path) != null) return false
+  const slash = path.lastIndexOf('/')
+  if (slash > 0) await ensureFolder(app, path.slice(0, slash))
+  await app.vault.create(path, content)
+  return true
+}
+
 function uniqueNotePath(app: AppLike, folder: string, title: string): string {
   const base = folder ? `${folder}/${title}` : title
   let path = `${base}.md`

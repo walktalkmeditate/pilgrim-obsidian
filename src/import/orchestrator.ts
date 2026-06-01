@@ -1,7 +1,14 @@
 import { applyWalkMods, archivedWalkIds, modsForWalk } from '../parse/apply-mods'
 import { parsePilgrim } from '../parse/pilgrim'
 import type { Walk } from '../parse/types'
-import { writeWalkNotes, type AppLike, type ImportTally, type WriterSettings } from '../vault/writer'
+import { buildDashboard, DASHBOARD_FILENAME } from '../render/dashboard'
+import {
+  writeFileIfAbsent,
+  writeWalkNotes,
+  type AppLike,
+  type ImportTally,
+  type WriterSettings,
+} from '../vault/writer'
 
 export interface ImportSettings {
   walksFolder: string
@@ -11,6 +18,7 @@ export interface ImportSettings {
 export interface ImportSummary extends ImportTally {
   totalWalks: number
   archivedSkipped: number
+  dashboardCreated: boolean
 }
 
 // Full import pipeline: parse the archive, replay each walk's edits, drop
@@ -65,7 +73,14 @@ export async function importPilgrim(
     },
   }
   const tally = await writeWalkNotes(app, finalWalks, photoBytes, writerSettings)
-  return { ...tally, totalWalks: walks.length, archivedSkipped }
+
+  const dashboardCreated = await writeFileIfAbsent(
+    app,
+    `${settings.walksFolder}/${DASHBOARD_FILENAME}`,
+    buildDashboard(settings.walksFolder),
+  )
+
+  return { ...tally, totalWalks: walks.length, archivedSkipped, dashboardCreated }
 }
 
 // One-line result message, with distinct wording for the empty, all-archived,

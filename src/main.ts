@@ -60,6 +60,9 @@ export default class WaymarkPlugin extends Plugin {
       if (summary.skippedNoMarkers.length > 0) {
         new Notice(`Markers missing, left untouched: ${summary.skippedNoMarkers.join(', ')}`, 10000)
       }
+      if (summary.dashboardCreated) {
+        new Notice(`Waymark dashboard created in ${this.settings.walksFolder}/`)
+      }
     } catch (err) {
       notice.setMessage(`Waymark import failed: ${err instanceof Error ? err.message : String(err)}`)
     }

@@ -47,7 +47,17 @@ describe('importPilgrim', () => {
     // #then the live walk updates in place; no duplicate notes
     expect(second.created).toBe(0)
     expect(second.updated).toBe(1)
-    expect(fake.mdCount()).toBe(1)
+    expect(fake.mdCount()).toBe(2) // 1 walk note + 1 dashboard
+    expect(second.dashboardCreated).toBe(false) // dashboard not recreated
+  })
+
+  it('creates the Dataview dashboard note once', async () => {
+    const fake = makeFakeApp()
+    const first = await importPilgrim(fake.app, await buildPilgrim(), SETTINGS)
+    expect(first.dashboardCreated).toBe(true)
+    expect([...fake.files.keys()]).toContain('Waymark/Waymark Dashboard.md')
+    const second = await importPilgrim(fake.app, await buildPilgrim(), SETTINGS)
+    expect(second.dashboardCreated).toBe(false)
   })
 
   it('creates a note for each of multiple non-archived walks', async () => {
@@ -65,7 +75,7 @@ describe('importPilgrim', () => {
     // #then both walks become distinct notes (same-date titles disambiguated)
     expect(summary.created).toBe(2)
     expect(summary.archivedSkipped).toBe(0)
-    expect(fake.mdCount()).toBe(2)
+    expect(fake.mdCount()).toBe(3) // 2 walk notes + 1 dashboard
   })
 })
 
@@ -78,6 +88,7 @@ describe('summaryMessage', () => {
     failed: [],
     totalWalks: 0,
     archivedSkipped: 0,
+    dashboardCreated: false,
   }
 
   it('reports an empty file distinctly', () => {
