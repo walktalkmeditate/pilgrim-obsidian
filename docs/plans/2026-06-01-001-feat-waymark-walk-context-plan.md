@@ -1,7 +1,7 @@
 ---
 title: "feat: Waymark v1.1 — full walk context (enrichment, dashboard, theme graph, map, places)"
 type: feat
-status: active
+status: completed
 date: 2026-06-01
 origin: docs/brainstorms/2026-06-01-waymark-walk-context-requirements.md
 ---
