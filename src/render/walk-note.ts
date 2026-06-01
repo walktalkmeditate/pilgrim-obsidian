@@ -54,8 +54,8 @@ function recordingHeading(walkStart: Date, rec: VoiceRecording): string {
 function renderFrontmatter(walk: Walk, opts: RenderOptions): Record<string, FrontmatterValue> {
   const fm: Record<string, FrontmatterValue> = {
     'waymark-id': walk.id,
-    type: 'walk',
-    date: isoDate(walk.startDate),
+    'waymark-type': 'walk',
+    'waymark-date': isoDate(walk.startDate),
     'waymark-start': walk.startDate.toISOString(),
     'waymark-distance-km': Number(km(walk.stats.distance)),
     'waymark-duration-min': minutes(walk.stats.activeDuration),

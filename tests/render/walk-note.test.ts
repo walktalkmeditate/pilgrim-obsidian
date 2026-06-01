@@ -50,7 +50,7 @@ describe('renderWalk', () => {
     expect(rendered.attachments).toHaveLength(0)
     expect(rendered.frontmatter['waymark-id']).toBe(walk.id)
     expect(rendered.frontmatter['waymark-distance-km']).toBe(5.43)
-    expect(rendered.frontmatter['date']).toBe('2024-03-09')
+    expect(rendered.frontmatter['waymark-date']).toBe('2024-03-09')
   })
 
   it('orders recordings by start time regardless of input order', async () => {
