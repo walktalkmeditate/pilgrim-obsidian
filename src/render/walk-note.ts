@@ -85,6 +85,13 @@ function waypointsOf(walk: Walk): Waypoint[] {
     .map((f) => ({ label: f.properties.label as string, timestamp: f.properties.timestamp }))
 }
 
+function reflectionWordCount(walk: Walk): number {
+  return walk.voiceRecordings.reduce((sum, r) => {
+    const t = r.transcription?.trim()
+    return sum + (t && t.length > 0 ? t.split(/\s+/).length : 0)
+  }, 0)
+}
+
 function renderFrontmatter(walk: Walk, opts: RenderOptions): Record<string, FrontmatterValue> {
   const fm: Record<string, FrontmatterValue> = {
     'waymark-id': walk.id,
@@ -98,7 +105,24 @@ function renderFrontmatter(walk: Walk, opts: RenderOptions): Record<string, Fron
     'waymark-version': opts.provenance.waymarkVersion,
   }
   if (walk.intention) fm['waymark-intention'] = walk.intention
-  if (walk.celestial?.lunarPhase?.name) fm['waymark-moon'] = walk.celestial.lunarPhase.name
+
+  if (typeof walk.stats.steps === 'number' && walk.stats.steps > 0) {
+    fm['waymark-steps'] = walk.stats.steps
+  }
+  const pace = paceMinPerKm(walk.stats.distance, walk.stats.activeDuration)
+  if (pace !== null) fm['waymark-pace-min-km'] = pace
+  const words = reflectionWordCount(walk)
+  if (words > 0) fm['waymark-reflection-words'] = words
+
+  const c = walk.celestial
+  if (c?.lunarPhase?.name) fm['waymark-moon'] = c.lunarPhase.name
+  if (c && Number.isFinite(c.lunarPhase?.illumination)) {
+    fm['waymark-moon-illumination'] = Math.round(c.lunarPhase.illumination * 100) / 100
+  }
+  if (c?.elementBalance?.dominant) fm['waymark-element-dominant'] = c.elementBalance.dominant
+  if (c?.planetaryHour?.planetaryDay) fm['waymark-planetary-day'] = c.planetaryHour.planetaryDay
+  if (c?.seasonalMarker) fm['waymark-seasonal-marker'] = c.seasonalMarker
+
   return fm
 }
 
@@ -157,9 +181,6 @@ function renderBody(walk: Walk): { body: string; attachments: AttachmentRef[] } 
     lines.push(`- **Meditated:** ${minutes(walk.stats.meditateDuration)} min`)
   }
   lines.push(`- **Time:** ${clockUTC(walk.startDate)}–${clockUTC(walk.endDate)} UTC`)
-  if (walk.celestial?.lunarPhase?.name) {
-    lines.push(`- **Moon:** ${walk.celestial.lunarPhase.name}`)
-  }
   lines.push('')
 
   const timeline = [
@@ -172,6 +193,24 @@ function renderBody(walk: Walk): { body: string; attachments: AttachmentRef[] } 
       const mins = Math.max(1, Math.round((seg.end.getTime() - seg.start.getTime()) / 60000))
       lines.push(`- ${minutesInto(walk.startDate, seg.start)} min in · ${seg.kind} (${mins} min)`)
     }
+    lines.push('')
+  }
+
+  const sky = walk.celestial
+  if (sky) {
+    lines.push('## Sky', '')
+    if (sky.lunarPhase?.name) {
+      const lit = Number.isFinite(sky.lunarPhase.illumination)
+        ? ` (${Math.round(sky.lunarPhase.illumination * 100)}% lit${sky.lunarPhase.isWaxing ? ', waxing' : ''})`
+        : ''
+      lines.push(`- **Moon:** ${sky.lunarPhase.name}${lit}`)
+    }
+    if (sky.planetaryHour?.planet || sky.planetaryHour?.planetaryDay) {
+      const day = sky.planetaryHour.planetaryDay ? ` (${sky.planetaryHour.planetaryDay})` : ''
+      lines.push(`- **Planetary hour:** ${sky.planetaryHour.planet ?? ''}${day}`.trim())
+    }
+    if (sky.elementBalance?.dominant) lines.push(`- **Dominant element:** ${sky.elementBalance.dominant}`)
+    if (sky.seasonalMarker) lines.push(`- **Season:** ${sky.seasonalMarker}`)
     lines.push('')
   }
 

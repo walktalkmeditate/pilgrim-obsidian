@@ -187,4 +187,34 @@ describe('renderWalk', () => {
     walk2.route = { type: 'FeatureCollection', features: [] }
     expect(renderWalk(walk2, OPTS).body).not.toContain('## Moments')
   })
+
+  it('emits structured celestial + stats frontmatter (U2)', async () => {
+    const { frontmatter } = renderWalk(await walkFrom(), OPTS)
+    expect(frontmatter['waymark-steps']).toBe(7200)
+    expect(frontmatter['waymark-pace-min-km']).toBe(11)
+    expect(frontmatter['waymark-moon']).toBe('Waxing Crescent')
+    expect(frontmatter['waymark-moon-illumination']).toBe(0.15)
+    expect(frontmatter['waymark-element-dominant']).toBe('earth')
+    expect(frontmatter['waymark-planetary-day']).toBe('Saturday')
+    expect(frontmatter['waymark-seasonal-marker']).toBe('Spring Equinox')
+    expect(frontmatter['waymark-reflection-words']).toBe(7)
+  })
+
+  it('renders a Sky section and relocates Moon out of On this walk (U2)', async () => {
+    const { body } = renderWalk(await walkFrom(), OPTS)
+    expect(body).toContain('## Sky')
+    expect(body).toContain('**Moon:** Waxing Crescent (15% lit, waxing)')
+    expect(body).toContain('**Dominant element:** earth')
+    const onThisWalk = body.slice(body.indexOf('## On this walk'), body.indexOf('## Timeline'))
+    expect(onThisWalk).not.toContain('Moon')
+  })
+
+  it('omits celestial frontmatter + Sky when celestial is absent (U2)', async () => {
+    const walk = await walkFrom()
+    walk.celestial = undefined
+    const { body, frontmatter } = renderWalk(walk, OPTS)
+    expect(body).not.toContain('## Sky')
+    expect(frontmatter['waymark-moon']).toBeUndefined()
+    expect(frontmatter['waymark-element-dominant']).toBeUndefined()
+  })
 })
