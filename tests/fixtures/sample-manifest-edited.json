@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "exportDate": 1710000000,
+  "appVersion": "1.0.0",
+  "walkCount": 2,
+  "preferences": {
+    "distanceUnit": "km",
+    "altitudeUnit": "m",
+    "speedUnit": "min/km",
+    "energyUnit": "kcal"
+  },
+  "archived": [
+    {
+      "id": "archived-walk-id",
+      "startDate": 1709000000,
+      "endDate": 1709003600,
+      "archivedAt": 1710000000,
+      "stats": { "distance": 1000, "activeDuration": 600, "talkDuration": 0, "meditateDuration": 0 }
+    }
+  ],
+  "modifications": [
+    {
+      "id": "mod-1",
+      "at": 1710000001000,
+      "op": "edit_transcription",
+      "walkId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "payload": { "recordingStartDate": 1710001200, "text": "Edited in the Pilgrim app" }
+    }
+  ]
+}
