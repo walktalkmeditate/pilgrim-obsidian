@@ -70,6 +70,7 @@ export async function importPilgrim(
 
   const writerSettings: WriterSettings = {
     walksFolder: settings.walksFolder,
+    mapboxToken: settings.mapboxToken,
     provenance: {
       schemaVersion: manifest.schemaVersion,
       appVersion: manifest.appVersion,

@@ -7,6 +7,8 @@ const SETTINGS: WriterSettings = {
   provenance: { schemaVersion: '1.0', appVersion: '1.0.0', waymarkVersion: '0.1.0' },
 }
 
+const MAP_SETTINGS: WriterSettings = { ...SETTINGS, mapboxToken: 'pk.test' }
+
 describe('writeWalkNotes', () => {
   it('creates a note with frontmatter, markers, and the transcription on first import', async () => {
     // #given an empty vault and one walk
@@ -109,6 +111,30 @@ describe('writeWalkNotes', () => {
     expect(tally.failed).toEqual(['bad-walk'])
     expect(tally.created).toBe(1)
     expect(fake.mdCount()).toBe(1)
+  })
+
+  it('writes the route geojson sidecar once and rewrites it on re-import (U5)', async () => {
+    // #given a walk and a Mapbox token (which gates the map + its sidecar)
+    const fake = makeFakeApp()
+    const walk = await walkFrom()
+    const sidecar = `Waymark/attachments/waymark-${walk.id}-route.geojson`
+
+    // #when imported
+    await writeWalkNotes(fake.app, [walk], new Map(), MAP_SETTINGS)
+
+    // #then a valid GeoJSON sidecar is written into the attachments folder
+    expect(fake.files.has(sidecar)).toBe(true)
+    expect(JSON.parse(fake.files.get(sidecar)!).type).toBe('FeatureCollection')
+
+    // #and re-import rewrites it in place — exactly one sidecar, no duplicate
+    await writeWalkNotes(fake.app, [walk], new Map(), MAP_SETTINGS)
+    expect([...fake.files.keys()].filter((p) => p.endsWith('.geojson'))).toHaveLength(1)
+  })
+
+  it('writes no sidecar without a Mapbox token (U5)', async () => {
+    const fake = makeFakeApp()
+    await writeWalkNotes(fake.app, [await walkFrom()], new Map(), SETTINGS)
+    expect([...fake.files.keys()].some((p) => p.endsWith('.geojson'))).toBe(false)
   })
 
   it('writes the note but skips a photo whose bytes are missing', async () => {

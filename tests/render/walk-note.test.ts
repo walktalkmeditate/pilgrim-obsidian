@@ -217,4 +217,38 @@ describe('renderWalk', () => {
     expect(frontmatter['waymark-moon']).toBeUndefined()
     expect(frontmatter['waymark-element-dominant']).toBeUndefined()
   })
+
+  it('emits a Leaflet block + valid route geojson sidecar when a token is set (U5)', async () => {
+    // #given the fixture (a LineString route + two labelled waypoints) and a token
+    const walk = await walkFrom()
+    const rendered = renderWalk(walk, { ...OPTS, mapboxToken: 'pk.test' })
+
+    // #then the body carries a Mapbox-backed leaflet block referencing a sidecar
+    expect(rendered.body).toContain('## Map')
+    expect(rendered.body).toContain('```leaflet')
+    expect(rendered.body).toContain('access_token=pk.test')
+    expect(rendered.body).toContain('tileSize: 512')
+    expect(rendered.body).toContain(`geojson: [[waymark-${walk.id}-route.geojson]]`)
+    expect(rendered.body).toMatch(/marker: default, [-\d.]+, [-\d.]+, , Peaceful/)
+
+    // #and the sidecar is emitted once as valid GeoJSON
+    expect(rendered.generatedFiles).toHaveLength(1)
+    expect(rendered.generatedFiles[0]!.fileName).toBe(`waymark-${walk.id}-route.geojson`)
+    expect(JSON.parse(rendered.generatedFiles[0]!.content).type).toBe('FeatureCollection')
+  })
+
+  it('emits no map or sidecar without a token (U5)', async () => {
+    const rendered = renderWalk(await walkFrom(), OPTS)
+    expect(rendered.body).not.toContain('```leaflet')
+    expect(rendered.body).not.toContain('## Map')
+    expect(rendered.generatedFiles).toHaveLength(0)
+  })
+
+  it('emits no map when the route has no coordinates, even with a token (U5)', async () => {
+    const walk = await walkFrom()
+    walk.route = { type: 'FeatureCollection', features: [] }
+    const rendered = renderWalk(walk, { ...OPTS, mapboxToken: 'pk.test' })
+    expect(rendered.body).not.toContain('```leaflet')
+    expect(rendered.generatedFiles).toHaveLength(0)
+  })
 })

@@ -9,6 +9,17 @@ export interface RenderProvenance {
 
 export interface RenderOptions {
   provenance: RenderProvenance
+  // When set, emit an interactive Leaflet map per note using Mapbox tiles.
+  mapboxToken?: string
+  // Resolved place name for the walk's start (set by the geocode step, U6).
+  placeName?: string
+}
+
+// A render-generated file to write into the vault (the route GeoJSON sidecar).
+// Distinct from photo AttachmentRefs, whose bytes come from the parsed archive.
+export interface GeneratedFile {
+  fileName: string
+  content: string
 }
 
 // A photo to materialize in the vault. `sourceToken` is the value the parse
@@ -25,6 +36,7 @@ export interface RenderedWalk {
   frontmatter: Record<string, FrontmatterValue>
   body: string
   attachments: AttachmentRef[]
+  generatedFiles: GeneratedFile[]
 }
 
 function isoDate(d: Date): string {
@@ -68,11 +80,14 @@ function paceMinPerKm(distanceMeters: number, activeSeconds: number): number | n
 interface Waypoint {
   label: string
   timestamp?: number
+  lat?: number
+  lng?: number
 }
 
 // Pinned waypoints are Point features tagged markerType 'waypoint'. Only
 // labelled ones become [[links]]. The per-feature timestamp is epoch SECONDS
 // (the parser does not ×1000 it, unlike the LineString timestamps array).
+// Point coordinates are [lng, lat].
 function waypointsOf(walk: Walk): Waypoint[] {
   return walk.route.features
     .filter(
@@ -82,7 +97,34 @@ function waypointsOf(walk: Walk): Waypoint[] {
         typeof f.properties.label === 'string' &&
         (f.properties.label as string).length > 0,
     )
-    .map((f) => ({ label: f.properties.label as string, timestamp: f.properties.timestamp }))
+    .map((f) => {
+      const c = f.geometry.coordinates as number[]
+      return {
+        label: f.properties.label as string,
+        timestamp: f.properties.timestamp,
+        lng: typeof c[0] === 'number' ? c[0] : undefined,
+        lat: typeof c[1] === 'number' ? c[1] : undefined,
+      }
+    })
+}
+
+// Map center for the Leaflet block: the average of the route LineString's
+// coordinates, falling back to the first Point feature. null when the route
+// carries no usable coordinates (no map is emitted).
+function routeCenter(walk: Walk): { lat: number; lng: number } | null {
+  const line = walk.route.features.find((f) => f.geometry.type === 'LineString')
+  const coords = (line?.geometry.coordinates as number[][] | undefined) ?? []
+  if (coords.length > 0) {
+    const lng = coords.reduce((s, c) => s + (c[0] ?? 0), 0) / coords.length
+    const lat = coords.reduce((s, c) => s + (c[1] ?? 0), 0) / coords.length
+    return { lat, lng }
+  }
+  const point = walk.route.features.find((f) => f.geometry.type === 'Point')
+  const pc = point?.geometry.coordinates as number[] | undefined
+  if (pc && typeof pc[0] === 'number' && typeof pc[1] === 'number') {
+    return { lat: pc[1], lng: pc[0] }
+  }
+  return null
 }
 
 function reflectionWordCount(walk: Walk): number {
@@ -126,9 +168,13 @@ function renderFrontmatter(walk: Walk, opts: RenderOptions): Record<string, Fron
   return fm
 }
 
-function renderBody(walk: Walk): { body: string; attachments: AttachmentRef[] } {
+function renderBody(
+  walk: Walk,
+  opts: RenderOptions,
+): { body: string; attachments: AttachmentRef[]; generatedFiles: GeneratedFile[] } {
   const lines: string[] = []
   const attachments: AttachmentRef[] = []
+  const generatedFiles: GeneratedFile[] = []
 
   if (walk.intention) {
     lines.push(`> **Intention** — ${walk.intention}`, '')
@@ -253,19 +299,49 @@ function renderBody(walk: Walk): { body: string; attachments: AttachmentRef[] } 
     lines.push('')
   }
 
-  return { body: lines.join('\n').trimEnd() + '\n', attachments }
+  if (opts.mapboxToken) {
+    const center = routeCenter(walk)
+    if (center) {
+      const geojsonName = `waymark-${walk.id}-route.geojson`
+      generatedFiles.push({ fileName: geojsonName, content: JSON.stringify(walk.route) })
+      lines.push('## Map', '')
+      lines.push('%% Install the obsidian-leaflet plugin to render this map. %%')
+      lines.push('```leaflet')
+      lines.push(`id: waymark-${walk.id}`)
+      lines.push(`lat: ${center.lat}`)
+      lines.push(`long: ${center.lng}`)
+      lines.push('height: 400px')
+      lines.push('defaultZoom: 14')
+      lines.push('osmLayer: false')
+      lines.push(
+        `tileServer: https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/{z}/{x}/{y}?access_token=${opts.mapboxToken}`,
+      )
+      lines.push('tileSize: 512')
+      lines.push('zoomOffset: -1')
+      lines.push(`geojson: [[${geojsonName}]]`)
+      for (const wp of waypoints) {
+        if (typeof wp.lat === 'number' && typeof wp.lng === 'number') {
+          lines.push(`marker: default, ${wp.lat}, ${wp.lng}, , ${wp.label}`)
+        }
+      }
+      lines.push('```', '')
+    }
+  }
+
+  return { body: lines.join('\n').trimEnd() + '\n', attachments, generatedFiles }
 }
 
 // Render a walk into the content Waymark owns inside a note: the frontmatter
 // keys, the managed-region body (markers are added by the merge engine, U5),
 // and the attachment manifest. Pure and Obsidian-free.
 export function renderWalk(walk: Walk, opts: RenderOptions): RenderedWalk {
-  const { body, attachments } = renderBody(walk)
+  const { body, attachments, generatedFiles } = renderBody(walk, opts)
   return {
     walkId: walk.id,
     title: `Walk ${isoDate(walk.startDate)}`,
     frontmatter: renderFrontmatter(walk, opts),
     body,
     attachments,
+    generatedFiles,
   }
 }

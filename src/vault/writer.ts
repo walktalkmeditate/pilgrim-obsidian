@@ -1,5 +1,10 @@
 import type { Walk } from '../parse/types'
-import { renderWalk, type AttachmentRef, type RenderProvenance } from '../render/walk-note'
+import {
+  renderWalk,
+  type AttachmentRef,
+  type GeneratedFile,
+  type RenderProvenance,
+} from '../render/walk-note'
 import { mergeFrontmatter, mergeNote } from './merge'
 
 // Narrow seam over the Obsidian App surface the writer uses. The real App
@@ -37,6 +42,7 @@ export interface AppLike {
 export interface WriterSettings {
   walksFolder: string
   provenance: RenderProvenance
+  mapboxToken?: string
 }
 
 export interface ImportTally {
@@ -103,6 +109,26 @@ function uniqueNotePath(app: AppLike, folder: string, title: string): string {
   return path
 }
 
+// Route GeoJSON sidecars are text the plugin owns, not photo bytes — they are
+// rewritten on every import so the map tracks edits. The wikilink resolves them
+// by basename regardless of folder.
+async function writeGeneratedFiles(
+  app: AppLike,
+  files: GeneratedFile[],
+  folder: string,
+): Promise<void> {
+  for (const file of files) {
+    const path = `${folder}/${file.fileName}`
+    const existing = app.vault.getAbstractFileByPath(path)
+    if (existing) {
+      await app.vault.process(existing as unknown as TFileLike, () => file.content)
+    } else {
+      await ensureFolder(app, folder)
+      await app.vault.create(path, file.content)
+    }
+  }
+}
+
 // Deterministic, existence-checked filenames make re-import idempotent — no
 // " 1.jpg" duplicates that getAvailablePathForAttachment would create on collision.
 async function writeAttachments(
@@ -145,7 +171,10 @@ export async function writeWalkNotes(
     // Isolate each walk: a single malformed walk must not abort the whole import
     // or discard the running tally.
     try {
-      const rendered = renderWalk(walk, { provenance: settings.provenance })
+      const rendered = renderWalk(walk, {
+        provenance: settings.provenance,
+        mapboxToken: settings.mapboxToken,
+      })
       const existing = index.get(walk.id) ?? null
       const existingContent = existing ? await app.vault.read(existing.file) : null
       const merge = mergeNote({
@@ -168,6 +197,7 @@ export async function writeWalkNotes(
       if (content === null) continue // defensive — create/update always carry content
 
       await writeAttachments(app, rendered.attachments, photoBytes, attachmentsFolder)
+      await writeGeneratedFiles(app, rendered.generatedFiles, attachmentsFolder)
 
       if (merge.decision === 'created') {
         await ensureFolder(app, settings.walksFolder)
