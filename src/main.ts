@@ -42,11 +42,17 @@ export default class WaymarkPlugin extends Plugin {
 
   // Import a .pilgrim archive's bytes into the vault. Public so other plugins,
   // scripts, or tests can drive an import without going through the file picker.
-  importBuffer(buffer: ArrayBuffer): Promise<ImportSummary> {
-    return importPilgrim(this.app as unknown as AppLike, buffer, {
+  async importBuffer(buffer: ArrayBuffer): Promise<ImportSummary> {
+    const summary = await importPilgrim(this.app as unknown as AppLike, buffer, {
       walksFolder: this.settings.walksFolder,
       waymarkVersion: this.manifest.version,
+      mapboxToken: this.settings.mapboxToken,
+      lookupPlaceNames: this.settings.lookupPlaceNames,
+      geocodeCache: this.settings.geocodeCache,
     })
+    // The geocode step mutates settings.geocodeCache in place — persist it.
+    await this.saveSettings()
+    return summary
   }
 
   private async runImport(file: File): Promise<void> {

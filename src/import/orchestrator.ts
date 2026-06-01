@@ -13,6 +13,10 @@ import {
 export interface ImportSettings {
   walksFolder: string
   waymarkVersion: string
+  // Phase B (opt-in): map tiles + place geocoding. Absent/empty = offline behavior.
+  mapboxToken?: string
+  lookupPlaceNames?: boolean
+  geocodeCache?: Record<string, string>
 }
 
 export interface ImportSummary extends ImportTally {
