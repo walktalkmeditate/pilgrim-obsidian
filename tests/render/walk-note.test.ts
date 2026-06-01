@@ -1,25 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import JSZip from 'jszip'
-import { parsePilgrim } from '../../src/parse/pilgrim'
 import { renderWalk, type RenderOptions } from '../../src/render/walk-note'
-import type { VoiceRecording, Walk, WalkPhoto } from '../../src/parse/types'
-import sampleWalk from '../fixtures/sample-walk.json'
-import sampleManifest from '../fixtures/sample-manifest.json'
+import type { VoiceRecording, WalkPhoto } from '../../src/parse/types'
+import { walkFrom } from '../support'
 
 const OPTS: RenderOptions = {
   provenance: { schemaVersion: '1.0', appVersion: '1.0.0', waymarkVersion: '0.1.0' },
-}
-
-async function walkFrom(overrides: Record<string, unknown> = {}): Promise<Walk> {
-  const raw = { ...structuredClone(sampleWalk), ...overrides } as Record<string, unknown>
-  const zip = new JSZip()
-  zip.file('manifest.json', JSON.stringify(sampleManifest))
-  zip.file(`walks/${(raw as { id: string }).id}.json`, JSON.stringify(raw))
-  const { walks } = await parsePilgrim(await zip.generateAsync({ type: 'arraybuffer' }), {
-    urlFactory: () => 'x',
-    urlRevoker: () => {},
-  })
-  return walks[0]!
 }
 
 function recording(startSec: number, transcription: string, isEnhanced = false): VoiceRecording {

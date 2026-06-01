@@ -1,22 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import JSZip from 'jszip'
-import { parsePilgrim } from '../../src/parse/pilgrim'
 import { applyWalkMods, archivedWalkIds, modsForWalk } from '../../src/parse/apply-mods'
-import type { Modification, PilgrimManifest, Walk } from '../../src/parse/types'
-import sampleWalk from '../fixtures/sample-walk.json'
+import type { Modification, PilgrimManifest } from '../../src/parse/types'
+import { walkFrom } from '../support'
 import sampleManifest from '../fixtures/sample-manifest.json'
-
-async function walkFrom(overrides: Record<string, unknown> = {}): Promise<Walk> {
-  const raw = { ...structuredClone(sampleWalk), ...overrides } as Record<string, unknown>
-  const zip = new JSZip()
-  zip.file('manifest.json', JSON.stringify(sampleManifest))
-  zip.file(`walks/${(raw as { id: string }).id}.json`, JSON.stringify(raw))
-  const { walks } = await parsePilgrim(await zip.generateAsync({ type: 'arraybuffer' }), {
-    urlFactory: () => 'x',
-    urlRevoker: () => {},
-  })
-  return walks[0]!
-}
 
 function mod(
   op: Modification['op'],
