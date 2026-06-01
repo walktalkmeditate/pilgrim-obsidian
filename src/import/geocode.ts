@@ -27,12 +27,12 @@ export function cacheKey(lat: number, lng: number): string {
 export function startCoordinate(walk: Walk): { lat: number; lng: number } | null {
   const line = walk.route.features.find((f) => f.geometry.type === 'LineString')
   const first = (line?.geometry.coordinates as number[][] | undefined)?.[0]
-  if (first && typeof first[0] === 'number' && typeof first[1] === 'number') {
+  if (first && Number.isFinite(first[0]) && Number.isFinite(first[1])) {
     return { lat: first[1], lng: first[0] }
   }
   const point = walk.route.features.find((f) => f.geometry.type === 'Point')
   const pc = point?.geometry.coordinates as number[] | undefined
-  if (pc && typeof pc[0] === 'number' && typeof pc[1] === 'number') {
+  if (pc && Number.isFinite(pc[0]) && Number.isFinite(pc[1])) {
     return { lat: pc[1], lng: pc[0] }
   }
   return null
@@ -97,8 +97,9 @@ export async function resolvePlaceNames(
         opts.cache[key] = name
         names.set(walk.id, name)
       }
-    } catch {
-      // fail-soft: leave this walk without a place name
+    } catch (err) {
+      // fail-soft: a failed lookup must never abort the import
+      console.warn('Waymark: place-name lookup failed', err)
     }
   }
   return names

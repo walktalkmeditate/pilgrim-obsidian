@@ -7,10 +7,14 @@ import type { AppLike } from './vault/writer'
 const GEOCODE_TIMEOUT_MS = 8000
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('geocode timeout')), ms)),
-  ])
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('geocode timeout')), ms)
+  })
+  // requestUrl exposes no abort, so the loser keeps running — swallow its late
+  // rejection so it can't surface as an unhandled rejection, and clear the timer.
+  promise.catch(() => {})
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
 
 // Obsidian requires the plugin entry point to be a default export extending
@@ -74,7 +78,9 @@ export default class WaymarkPlugin extends Plugin {
       const response = await withTimeout(
         requestUrl({
           url: nominatimUrl(lat, lng),
-          headers: { 'User-Agent': `Waymark/${this.manifest.version} (Obsidian plugin)` },
+          headers: {
+            'User-Agent': `Waymark/${this.manifest.version} (Obsidian plugin; https://github.com/walktalkmeditate/pilgrim-obsidian)`,
+          },
         }),
         GEOCODE_TIMEOUT_MS,
       )

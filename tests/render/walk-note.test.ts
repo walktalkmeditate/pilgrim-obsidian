@@ -148,7 +148,7 @@ describe('renderWalk', () => {
     const { body } = renderWalk(await walkFrom(), OPTS)
     expect(body).toContain('## Moments')
     expect(body).toContain('12 min in · [[Peaceful]]')
-    expect(body).toContain('[[Grateful]]')
+    expect(body).toContain('36 min in · [[Grateful]]')
   })
 
   it('renders pace from distance/duration, steps, and a UTC time range (U1)', async () => {
@@ -262,5 +262,32 @@ describe('renderWalk', () => {
     const { body } = renderWalk(await walkFrom(), OPTS)
     expect(body).not.toContain('**Near:**')
     expect(body).not.toContain('OpenStreetMap')
+  })
+
+  it('centers the map on the first Point when the route has no LineString (U5)', async () => {
+    const walk = await walkFrom()
+    walk.route.features = walk.route.features.filter((f) => f.geometry.type !== 'LineString')
+    const { body, generatedFiles } = renderWalk(walk, { ...OPTS, mapboxToken: 'pk.test' })
+    expect(body).toContain('```leaflet')
+    expect(body).toContain('lat: 42.886') // first Point [-8.513, 42.886]
+    expect(body).toContain('long: -8.513')
+    expect(generatedFiles).toHaveLength(1)
+  })
+
+  it('omits the waxing suffix when the moon is waning (U2)', async () => {
+    const walk = await walkFrom()
+    walk.celestial!.lunarPhase!.isWaxing = false
+    const { body } = renderWalk(walk, OPTS)
+    expect(body).toContain('% lit)')
+    expect(body).not.toContain(', waxing')
+  })
+
+  it('sanitizes wikilink-breaking characters in a waypoint label (hardening)', async () => {
+    const walk = await walkFrom()
+    const wp = walk.route.features.find((f) => f.properties.markerType === 'waypoint')!
+    wp.properties.label = 'Bad]] [[Label'
+    const { body } = renderWalk(walk, OPTS)
+    expect(body).not.toContain('Bad]] [[Label')
+    expect(body).toContain('[[Bad Label]]')
   })
 })

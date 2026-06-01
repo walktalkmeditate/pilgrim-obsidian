@@ -31,8 +31,15 @@ describe('geocode helpers', () => {
   it('prefers name, falls back to display_name, then null', () => {
     expect(parseNominatim({ name: 'Santiago' })).toBe('Santiago')
     expect(parseNominatim({ display_name: 'Praza, Santiago, Spain' })).toBe('Praza')
+    expect(parseNominatim({ name: '', display_name: 'Praza, Santiago, Spain' })).toBe('Praza')
     expect(parseNominatim({})).toBeNull()
     expect(parseNominatim('nope')).toBeNull()
+  })
+
+  it('falls back to the first Point when the route has no LineString', async () => {
+    const walk = await walkFrom()
+    walk.route.features = walk.route.features.filter((f) => f.geometry.type !== 'LineString')
+    expect(startCoordinate(walk)).toEqual({ lat: 42.886, lng: -8.513 })
   })
 })
 
@@ -86,10 +93,31 @@ describe('resolvePlaceNames', () => {
 
     const sleep = vi.fn(async () => {})
     const geocoder = vi.fn(async (lat: number) => `P${lat}`)
-    await resolvePlaceNames([a, b, c], { lookup: true, cache: {}, geocoder, sleep, throttleMs: 50 })
+    const names = await resolvePlaceNames([a, b, c], {
+      lookup: true,
+      cache: {},
+      geocoder,
+      sleep,
+      throttleMs: 50,
+    })
 
     expect(geocoder).toHaveBeenCalledTimes(2) // a (miss), b (cache hit), c (miss)
     expect(sleep).toHaveBeenCalledTimes(1) // throttled once, between the two network calls
+    expect(names.get('a')).toBe('P42.887')
+    expect(names.get('b')).toBe('P42.887') // b actually received a's cached name
+    expect(names.get('c')).toBe('P20')
+  })
+
+  it('does not cache a null result, so a no-name location is retried on re-import', async () => {
+    const walk = await walkFrom()
+    const cache: Record<string, string> = {}
+    const geocoder = vi.fn(async () => null)
+
+    await resolvePlaceNames([walk], { lookup: true, cache, geocoder, sleep: NOOP_SLEEP })
+    await resolvePlaceNames([walk], { lookup: true, cache, geocoder, sleep: NOOP_SLEEP })
+
+    expect(geocoder).toHaveBeenCalledTimes(2) // not short-circuited by a cached null
+    expect(Object.keys(cache)).toHaveLength(0)
   })
 
   it('is fail-soft when the geocoder throws or returns null', async () => {

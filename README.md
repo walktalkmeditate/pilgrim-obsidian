@@ -51,7 +51,7 @@ Each note can embed a route map rendered from the walk's GeoJSON:
 1. Install the **[obsidian-leaflet](https://github.com/javalent/obsidian-leaflet)** community plugin — it draws the map.
 2. Create a free **Mapbox** token at [account.mapbox.com/access-tokens](https://account.mapbox.com/access-tokens/) and paste it into *Settings → Waymark → Mapbox access token*.
 
-On the next import, walks with a route gain a `## Map` section backed by a `.geojson` sidecar in the attachments folder. **Heads-up:** the token is written into your notes and `data.json`, so it travels with your vault — treat it as public and set a usage cap on it in your Mapbox account.
+On the next import, walks with a route gain a `## Map` section backed by a `.geojson` sidecar in the attachments folder. The sidecar holds the walk's full, precise route; it stays in your vault and is never sent over the network. **Heads-up:** the token is written into your notes and `data.json`, so it travels with your vault — treat it as public and set a usage cap on it in your Mapbox account.
 
 ### Place backlinks
 

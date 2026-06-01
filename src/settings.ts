@@ -7,8 +7,7 @@ export interface WaymarkSettings {
   mapboxToken: string
   // Opt-in: reverse-geocode walk start coordinates to place names via OpenStreetMap.
   lookupPlaceNames: boolean
-  // Persisted geocode cache (rounded-coord key -> place name) so re-imports don't
-  // re-hit the geocoder. Not shown in the settings UI.
+  // Persisted geocode cache (rounded-coord key -> place name); grows monotonically.
   geocodeCache: Record<string, string>
 }
 

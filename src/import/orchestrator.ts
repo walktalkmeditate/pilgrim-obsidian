@@ -18,8 +18,7 @@ export interface ImportSettings {
   mapboxToken?: string
   lookupPlaceNames?: boolean
   geocodeCache?: Record<string, string>
-  // The network seam for reverse geocoding. main.ts supplies a requestUrl-backed
-  // Nominatim resolver; tests inject a fake. Unused unless lookupPlaceNames is on.
+  // Injectable reverse-geocoder seam (unused unless lookupPlaceNames is on).
   geocode?: Geocoder
 }
 
@@ -90,11 +89,18 @@ export async function importPilgrim(
   }
   const tally = await writeWalkNotes(app, finalWalks, photoBytes, writerSettings)
 
-  const dashboardCreated = await writeFileIfAbsent(
-    app,
-    `${settings.walksFolder}/${DASHBOARD_FILENAME}`,
-    buildDashboard(settings.walksFolder),
-  )
+  // The dashboard is a convenience; a failure here must not fail an import whose
+  // walk notes and geocode cache have already been written.
+  let dashboardCreated = false
+  try {
+    dashboardCreated = await writeFileIfAbsent(
+      app,
+      `${settings.walksFolder}/${DASHBOARD_FILENAME}`,
+      buildDashboard(settings.walksFolder),
+    )
+  } catch (err) {
+    console.error('Waymark: failed to create dashboard note', err)
+  }
 
   return { ...tally, totalWalks: walks.length, archivedSkipped, dashboardCreated }
 }

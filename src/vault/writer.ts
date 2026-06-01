@@ -21,7 +21,7 @@ export interface VaultLike {
   create(path: string, data: string): Promise<TFileLike>
   process(file: TFileLike, fn: (data: string) => string): Promise<string>
   createFolder(path: string): Promise<void>
-  getAbstractFileByPath(path: string): { path: string } | null
+  getAbstractFileByPath(path: string): TFileLike | null
   createBinary(path: string, data: ArrayBuffer): Promise<TFileLike>
 }
 
@@ -86,7 +86,7 @@ async function ensureFolder(app: AppLike, folder: string): Promise<void> {
 }
 
 // Write a generated note once; never overwrite an existing file (the user owns it
-// after first creation). Returns whether it was created. Used for the dashboard.
+// after first creation). Returns whether it was created.
 export async function writeFileIfAbsent(
   app: AppLike,
   path: string,
@@ -122,7 +122,7 @@ async function writeGeneratedFiles(
     const path = `${folder}/${file.fileName}`
     const existing = app.vault.getAbstractFileByPath(path)
     if (existing) {
-      await app.vault.process(existing as unknown as TFileLike, () => file.content)
+      await app.vault.process(existing, () => file.content)
     } else {
       await ensureFolder(app, folder)
       await app.vault.create(path, file.content)
@@ -199,7 +199,13 @@ export async function writeWalkNotes(
       if (content === null) continue // defensive — create/update always carry content
 
       await writeAttachments(app, rendered.attachments, photoBytes, attachmentsFolder)
-      await writeGeneratedFiles(app, rendered.generatedFiles, attachmentsFolder)
+      // The map is best-effort: a sidecar write failure degrades to a missing map,
+      // it must not fail the walk note itself.
+      try {
+        await writeGeneratedFiles(app, rendered.generatedFiles, attachmentsFolder)
+      } catch (err) {
+        console.error(`Waymark: failed to write map data for walk ${walk.id}`, err)
+      }
 
       if (merge.decision === 'created') {
         await ensureFolder(app, settings.walksFolder)

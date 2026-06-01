@@ -9,9 +9,7 @@ export interface RenderProvenance {
 
 export interface RenderOptions {
   provenance: RenderProvenance
-  // When set, emit an interactive Leaflet map per note using Mapbox tiles.
   mapboxToken?: string
-  // Resolved place name for the walk's start (set by the geocode step, U6).
   placeName?: string
 }
 
@@ -113,18 +111,26 @@ function waypointsOf(walk: Walk): Waypoint[] {
 // carries no usable coordinates (no map is emitted).
 function routeCenter(walk: Walk): { lat: number; lng: number } | null {
   const line = walk.route.features.find((f) => f.geometry.type === 'LineString')
-  const coords = (line?.geometry.coordinates as number[][] | undefined) ?? []
+  const coords = ((line?.geometry.coordinates as number[][] | undefined) ?? []).filter(
+    (c) => Number.isFinite(c[0]) && Number.isFinite(c[1]),
+  )
   if (coords.length > 0) {
-    const lng = coords.reduce((s, c) => s + (c[0] ?? 0), 0) / coords.length
-    const lat = coords.reduce((s, c) => s + (c[1] ?? 0), 0) / coords.length
+    const lng = coords.reduce((s, c) => s + c[0], 0) / coords.length
+    const lat = coords.reduce((s, c) => s + c[1], 0) / coords.length
     return { lat, lng }
   }
   const point = walk.route.features.find((f) => f.geometry.type === 'Point')
   const pc = point?.geometry.coordinates as number[] | undefined
-  if (pc && typeof pc[0] === 'number' && typeof pc[1] === 'number') {
+  if (pc && Number.isFinite(pc[0]) && Number.isFinite(pc[1])) {
     return { lat: pc[1], lng: pc[0] }
   }
   return null
+}
+
+// Strip characters that would break a [[wikilink]] or a comma-delimited Leaflet
+// marker line, so a stray bracket in a label can't corrupt the managed region.
+function cleanLabel(s: string): string {
+  return s.replace(/[[\]|,]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
 function reflectionWordCount(walk: Walk): number {
@@ -202,7 +208,7 @@ function renderBody(
         typeof wp.timestamp === 'number'
           ? `${minutesInto(walk.startDate, new Date(wp.timestamp * 1000))} min in · `
           : ''
-      lines.push(`- ${at}[[${wp.label}]]`)
+      lines.push(`- ${at}[[${cleanLabel(wp.label)}]]`)
     }
     lines.push('')
   }
@@ -227,11 +233,11 @@ function renderBody(
     lines.push(`- **Meditated:** ${minutes(walk.stats.meditateDuration)} min`)
   }
   lines.push(`- **Time:** ${clockUTC(walk.startDate)}–${clockUTC(walk.endDate)} UTC`)
-  if (opts.placeName) lines.push(`- **Near:** [[${opts.placeName}]]`)
+  if (opts.placeName) lines.push(`- **Near:** [[${cleanLabel(opts.placeName)}]]`)
   lines.push('')
 
   const timeline = [
-    ...walk.activities.map((a) => ({ start: a.startDate, end: a.endDate, kind: a.type as string })),
+    ...walk.activities.map((a) => ({ start: a.startDate, end: a.endDate, kind: a.type })),
     ...walk.pauses.map((p) => ({ start: p.startDate, end: p.endDate, kind: 'pause' })),
   ].sort((a, b) => a.start.getTime() - b.start.getTime())
   if (timeline.length > 0) {
@@ -303,12 +309,13 @@ function renderBody(
   if (opts.mapboxToken) {
     const center = routeCenter(walk)
     if (center) {
-      const geojsonName = `waymark-${walk.id}-route.geojson`
+      const idSlug = walk.id.replace(/[^a-zA-Z0-9]+/g, '-')
+      const geojsonName = `waymark-${idSlug}-route.geojson`
       generatedFiles.push({ fileName: geojsonName, content: JSON.stringify(walk.route) })
       lines.push('## Map', '')
       lines.push('%% Install the obsidian-leaflet plugin to render this map. %%')
       lines.push('```leaflet')
-      lines.push(`id: waymark-${walk.id}`)
+      lines.push(`id: waymark-${idSlug}`)
       lines.push(`lat: ${center.lat}`)
       lines.push(`long: ${center.lng}`)
       lines.push('height: 400px')
@@ -322,7 +329,7 @@ function renderBody(
       lines.push(`geojson: [[${geojsonName}]]`)
       for (const wp of waypoints) {
         if (typeof wp.lat === 'number' && typeof wp.lng === 'number') {
-          lines.push(`marker: default, ${wp.lat}, ${wp.lng}, , ${wp.label}`)
+          lines.push(`marker: default, ${wp.lat}, ${wp.lng}, , ${cleanLabel(wp.label)}`)
         }
       }
       lines.push('```', '')

@@ -113,7 +113,7 @@ describe('writeWalkNotes', () => {
     expect(fake.mdCount()).toBe(1)
   })
 
-  it('writes the route geojson sidecar once and rewrites it on re-import (U5)', async () => {
+  it('writes the route geojson sidecar once and rewrites it in place on re-import (U5)', async () => {
     // #given a walk and a Mapbox token (which gates the map + its sidecar)
     const fake = makeFakeApp()
     const walk = await walkFrom()
@@ -126,9 +126,34 @@ describe('writeWalkNotes', () => {
     expect(fake.files.has(sidecar)).toBe(true)
     expect(JSON.parse(fake.files.get(sidecar)!).type).toBe('FeatureCollection')
 
-    // #and re-import rewrites it in place — exactly one sidecar, no duplicate
+    // #and re-import overwrites the existing sidecar in place (proves the
+    // process-branch fires) — exactly one sidecar, no duplicate
+    fake.files.set(sidecar, 'STALE')
     await writeWalkNotes(fake.app, [walk], new Map(), MAP_SETTINGS)
+    expect(fake.files.get(sidecar)).not.toBe('STALE')
+    expect(JSON.parse(fake.files.get(sidecar)!).type).toBe('FeatureCollection')
     expect([...fake.files.keys()].filter((p) => p.endsWith('.geojson'))).toHaveLength(1)
+  })
+
+  it('does not rewrite the sidecar when the walk is skipped-edited (U5 + AE3)', async () => {
+    // #given an imported walk+sidecar whose note region the user then edits
+    const fake = makeFakeApp()
+    const walk = await walkFrom()
+    const sidecar = `Waymark/attachments/waymark-${walk.id}-route.geojson`
+    await writeWalkNotes(fake.app, [walk], new Map(), MAP_SETTINGS)
+    const notePath = [...fake.files.keys()].find((p) => p.endsWith('.md'))!
+    fake.files.set(
+      notePath,
+      fake.files.get(notePath)!.replace('The morning light filters through the trees', 'My own edit'),
+    )
+    fake.files.set(sidecar, 'TAMPERED') // prove the skip path touches nothing
+
+    // #when re-imported
+    const tally = await writeWalkNotes(fake.app, [walk], new Map(), MAP_SETTINGS)
+
+    // #then the walk is skipped and the sidecar is left exactly as-is
+    expect(tally.skippedEdited).toHaveLength(1)
+    expect(fake.files.get(sidecar)).toBe('TAMPERED')
   })
 
   it('writes no sidecar without a Mapbox token (U5)', async () => {

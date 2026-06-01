@@ -5,7 +5,7 @@ export const DASHBOARD_FILENAME = 'Waymark Dashboard.md'
 // install hint is always present (harmless when Dataview is installed; the blocks
 // degrade to inert text without it), so no runtime plugin detection is needed.
 export function buildDashboard(walksFolder: string): string {
-  const from = JSON.stringify(walksFolder) // -> "Waymark"
+  const from = JSON.stringify(walksFolder)
   const block = (lines: string[]): string => ['```dataview', ...lines, '```', ''].join('\n')
 
   return [

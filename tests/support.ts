@@ -81,7 +81,7 @@ export function makeFakeApp(): Fake {
     createFolder: async (path) => {
       folders.add(path)
     },
-    getAbstractFileByPath: (path) => (exists(path) ? { path } : null),
+    getAbstractFileByPath: (path) => (exists(path) ? { path, basename: basename(path) } : null),
     createBinary: async (path) => {
       binaries.add(path)
       binaryCount++
