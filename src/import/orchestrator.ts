@@ -17,7 +17,10 @@ export interface ImportSettings {
   // Phase B (opt-in): map tiles + place geocoding. Absent/empty = offline behavior.
   mapboxToken?: string
   lookupPlaceNames?: boolean
-  geocodeCache?: Record<string, string>
+  // Caller-owned: resolvePlaceNames mutates this in place so entries persist across
+  // imports. Required (pass {} when offline) so results are never silently
+  // discarded into a throwaway object.
+  geocodeCache: Record<string, string>
   // Injectable reverse-geocoder seam (unused unless lookupPlaceNames is on).
   geocode?: Geocoder
 }
@@ -73,7 +76,7 @@ export async function importPilgrim(
 
   const placeNames = await resolvePlaceNames(finalWalks, {
     lookup: settings.lookupPlaceNames === true,
-    cache: settings.geocodeCache ?? {},
+    cache: settings.geocodeCache,
     geocoder: settings.geocode ?? (async () => null),
   })
 

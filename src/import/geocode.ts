@@ -98,7 +98,6 @@ export async function resolvePlaceNames(
         names.set(walk.id, name)
       }
     } catch (err) {
-      // fail-soft: a failed lookup must never abort the import
       console.warn('Waymark: place-name lookup failed', err)
     }
   }

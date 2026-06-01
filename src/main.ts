@@ -37,6 +37,9 @@ export default class WaymarkPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData())
+    // Object.assign is shallow: give this instance its own cache object so the
+    // geocode step never mutates the shared DEFAULT_SETTINGS constant.
+    this.settings.geocodeCache = { ...this.settings.geocodeCache }
   }
 
   async saveSettings(): Promise<void> {
@@ -57,17 +60,20 @@ export default class WaymarkPlugin extends Plugin {
   // Import a .pilgrim archive's bytes into the vault. Public so other plugins,
   // scripts, or tests can drive an import without going through the file picker.
   async importBuffer(buffer: ArrayBuffer): Promise<ImportSummary> {
-    const summary = await importPilgrim(this.app as unknown as AppLike, buffer, {
-      walksFolder: this.settings.walksFolder,
-      waymarkVersion: this.manifest.version,
-      mapboxToken: this.settings.mapboxToken,
-      lookupPlaceNames: this.settings.lookupPlaceNames,
-      geocodeCache: this.settings.geocodeCache,
-      geocode: (lat, lng) => this.reverseGeocode(lat, lng),
-    })
-    // The geocode step mutates settings.geocodeCache in place — persist it.
-    await this.saveSettings()
-    return summary
+    try {
+      return await importPilgrim(this.app as unknown as AppLike, buffer, {
+        walksFolder: this.settings.walksFolder,
+        waymarkVersion: this.manifest.version,
+        mapboxToken: this.settings.mapboxToken,
+        lookupPlaceNames: this.settings.lookupPlaceNames,
+        geocodeCache: this.settings.geocodeCache,
+        geocode: (lat, lng) => this.reverseGeocode(lat, lng),
+      })
+    } finally {
+      // The geocode step mutates settings.geocodeCache in place; persist it even
+      // if the import threw partway, so resolved lookups are not re-fetched.
+      await this.saveSettings()
+    }
   }
 
   // Reverse-geocode via Nominatim. Sends an explicit User-Agent (their policy
@@ -85,7 +91,10 @@ export default class WaymarkPlugin extends Plugin {
         GEOCODE_TIMEOUT_MS,
       )
       return parseNominatim(response.json)
-    } catch {
+    } catch (err) {
+      // Fail-soft, but not silent: a systematic failure (429, bad token, offline)
+      // is only diagnosable if it reaches the console.
+      console.warn('Waymark: reverse geocode failed', err)
       return null
     }
   }

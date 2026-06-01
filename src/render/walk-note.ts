@@ -100,8 +100,8 @@ function waypointsOf(walk: Walk): Waypoint[] {
       return {
         label: f.properties.label as string,
         timestamp: f.properties.timestamp,
-        lng: typeof c[0] === 'number' ? c[0] : undefined,
-        lat: typeof c[1] === 'number' ? c[1] : undefined,
+        lng: Number.isFinite(c[0]) ? c[0] : undefined,
+        lat: Number.isFinite(c[1]) ? c[1] : undefined,
       }
     })
 }
@@ -131,6 +131,19 @@ function routeCenter(walk: Walk): { lat: number; lng: number } | null {
 // marker line, so a stray bracket in a label can't corrupt the managed region.
 function cleanLabel(s: string): string {
   return s.replace(/[[\]|,]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// Injective, filesystem-safe slug for a walk id used in the route sidecar name:
+// UUID-shaped ids pass through unchanged; anything else gets a hash suffix so two
+// ids that would slug-collide (e.g. "trip/01" and "trip.01") never share a sidecar.
+function shortHash(s: string): string {
+  let h = 5381
+  for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0
+  return h.toString(36)
+}
+
+function sidecarSlug(id: string): string {
+  return /^[A-Za-z0-9-]+$/.test(id) ? id : `${id.replace(/[^A-Za-z0-9]+/g, '-')}-${shortHash(id)}`
 }
 
 function reflectionWordCount(walk: Walk): number {
@@ -181,6 +194,7 @@ function renderBody(
   const lines: string[] = []
   const attachments: AttachmentRef[] = []
   const generatedFiles: GeneratedFile[] = []
+  const placeName = opts.placeName ? cleanLabel(opts.placeName) : ''
 
   if (walk.intention) {
     lines.push(`> **Intention** — ${walk.intention}`, '')
@@ -201,14 +215,17 @@ function renderBody(
   }
 
   const waypoints = waypointsOf(walk)
-  if (waypoints.length > 0) {
+  const moments = waypoints
+    .map((wp) => ({ wp, label: cleanLabel(wp.label) }))
+    .filter((m) => m.label.length > 0)
+  if (moments.length > 0) {
     lines.push('## Moments', '')
-    for (const wp of waypoints) {
+    for (const { wp, label } of moments) {
       const at =
         typeof wp.timestamp === 'number'
           ? `${minutesInto(walk.startDate, new Date(wp.timestamp * 1000))} min in · `
           : ''
-      lines.push(`- ${at}[[${cleanLabel(wp.label)}]]`)
+      lines.push(`- ${at}[[${label}]]`)
     }
     lines.push('')
   }
@@ -233,7 +250,7 @@ function renderBody(
     lines.push(`- **Meditated:** ${minutes(walk.stats.meditateDuration)} min`)
   }
   lines.push(`- **Time:** ${clockUTC(walk.startDate)}–${clockUTC(walk.endDate)} UTC`)
-  if (opts.placeName) lines.push(`- **Near:** [[${cleanLabel(opts.placeName)}]]`)
+  if (placeName) lines.push(`- **Near:** [[${placeName}]]`)
   lines.push('')
 
   const timeline = [
@@ -309,7 +326,7 @@ function renderBody(
   if (opts.mapboxToken) {
     const center = routeCenter(walk)
     if (center) {
-      const idSlug = walk.id.replace(/[^a-zA-Z0-9]+/g, '-')
+      const idSlug = sidecarSlug(walk.id)
       const geojsonName = `waymark-${idSlug}-route.geojson`
       generatedFiles.push({ fileName: geojsonName, content: JSON.stringify(walk.route) })
       lines.push('## Map', '')
@@ -328,7 +345,7 @@ function renderBody(
       lines.push('zoomOffset: -1')
       lines.push(`geojson: [[${geojsonName}]]`)
       for (const wp of waypoints) {
-        if (typeof wp.lat === 'number' && typeof wp.lng === 'number') {
+        if (Number.isFinite(wp.lat) && Number.isFinite(wp.lng)) {
           lines.push(`marker: default, ${wp.lat}, ${wp.lng}, , ${cleanLabel(wp.label)}`)
         }
       }
@@ -336,7 +353,7 @@ function renderBody(
     }
   }
 
-  if (opts.placeName) {
+  if (placeName) {
     lines.push('*Place name © OpenStreetMap contributors*', '')
   }
 

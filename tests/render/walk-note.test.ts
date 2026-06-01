@@ -290,4 +290,42 @@ describe('renderWalk', () => {
     expect(body).not.toContain('Bad]] [[Label')
     expect(body).toContain('[[Bad Label]]')
   })
+
+  it('drops a Moment whose label collapses to empty after sanitization (hardening)', async () => {
+    const walk = await walkFrom()
+    for (const f of walk.route.features) {
+      if (f.properties.markerType === 'waypoint') f.properties.label = ']]'
+    }
+    const { body } = renderWalk(walk, OPTS)
+    expect(body).not.toContain('[[]]')
+    expect(body).not.toContain('## Moments')
+  })
+
+  it('omits the place backlink + attribution when the place name sanitizes to empty (hardening)', async () => {
+    const { body } = renderWalk(await walkFrom(), { ...OPTS, placeName: ',,,' })
+    expect(body).not.toContain('**Near:**')
+    expect(body).not.toContain('[[]]')
+    expect(body).not.toContain('OpenStreetMap')
+  })
+
+  it('omits a leaflet marker for a waypoint with non-finite coordinates (hardening)', async () => {
+    const walk = await walkFrom()
+    const wp = walk.route.features.find((f) => f.properties.markerType === 'waypoint')!
+    ;(wp.geometry.coordinates as number[])[0] = NaN
+    const { body } = renderWalk(walk, { ...OPTS, mapboxToken: 'pk.test' })
+    expect(body).not.toContain('NaN')
+  })
+
+  it('gives slug-colliding walk ids distinct route sidecars, UUIDs unchanged (U5 hardening)', async () => {
+    const a = await walkFrom()
+    const b = await walkFrom()
+    a.id = 'trip/01'
+    b.id = 'trip.01' // slugs to the same 'trip-01' under naive replacement
+    const named = (w: typeof a) =>
+      renderWalk(w, { ...OPTS, mapboxToken: 'pk.test' }).generatedFiles[0]!.fileName
+    expect(named(a)).not.toBe(named(b))
+
+    const uuid = await walkFrom()
+    expect(named(uuid)).toBe(`waymark-${uuid.id}-route.geojson`)
+  })
 })

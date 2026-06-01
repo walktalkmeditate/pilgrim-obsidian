@@ -6,7 +6,7 @@ import sampleWalk from '../fixtures/sample-walk.json'
 import sampleManifest from '../fixtures/sample-manifest.json'
 import editedManifest from '../fixtures/sample-manifest-edited.json'
 
-const SETTINGS = { walksFolder: 'Waymark', waymarkVersion: '0.1.0' }
+const SETTINGS = { walksFolder: 'Waymark', waymarkVersion: '0.1.0', geocodeCache: {} }
 
 // An archive whose manifest carries an edit_transcription mod for the sample
 // walk and an archived entry for a second walk that is also present in walks/.
