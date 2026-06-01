@@ -2,6 +2,7 @@ import { applyWalkMods, archivedWalkIds, modsForWalk } from '../parse/apply-mods
 import { parsePilgrim } from '../parse/pilgrim'
 import type { Walk } from '../parse/types'
 import { buildDashboard, DASHBOARD_FILENAME } from '../render/dashboard'
+import { resolvePlaceNames, type Geocoder } from './geocode'
 import {
   writeFileIfAbsent,
   writeWalkNotes,
@@ -17,6 +18,9 @@ export interface ImportSettings {
   mapboxToken?: string
   lookupPlaceNames?: boolean
   geocodeCache?: Record<string, string>
+  // The network seam for reverse geocoding. main.ts supplies a requestUrl-backed
+  // Nominatim resolver; tests inject a fake. Unused unless lookupPlaceNames is on.
+  geocode?: Geocoder
 }
 
 export interface ImportSummary extends ImportTally {
@@ -68,9 +72,16 @@ export async function importPilgrim(
     finalWalks.push(applied)
   }
 
+  const placeNames = await resolvePlaceNames(finalWalks, {
+    lookup: settings.lookupPlaceNames === true,
+    cache: settings.geocodeCache ?? {},
+    geocoder: settings.geocode ?? (async () => null),
+  })
+
   const writerSettings: WriterSettings = {
     walksFolder: settings.walksFolder,
     mapboxToken: settings.mapboxToken,
+    placeNames,
     provenance: {
       schemaVersion: manifest.schemaVersion,
       appVersion: manifest.appVersion,

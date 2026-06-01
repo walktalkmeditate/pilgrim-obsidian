@@ -251,4 +251,16 @@ describe('renderWalk', () => {
     expect(rendered.body).not.toContain('```leaflet')
     expect(rendered.generatedFiles).toHaveLength(0)
   })
+
+  it('renders a place backlink and OSM attribution when a place name is set (U6)', async () => {
+    const { body } = renderWalk(await walkFrom(), { ...OPTS, placeName: 'Santiago de Compostela' })
+    expect(body).toContain('**Near:** [[Santiago de Compostela]]')
+    expect(body).toContain('© OpenStreetMap contributors')
+  })
+
+  it('omits the place backlink and attribution without a place name (U6)', async () => {
+    const { body } = renderWalk(await walkFrom(), OPTS)
+    expect(body).not.toContain('**Near:**')
+    expect(body).not.toContain('OpenStreetMap')
+  })
 })

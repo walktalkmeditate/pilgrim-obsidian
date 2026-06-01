@@ -227,6 +227,7 @@ function renderBody(
     lines.push(`- **Meditated:** ${minutes(walk.stats.meditateDuration)} min`)
   }
   lines.push(`- **Time:** ${clockUTC(walk.startDate)}–${clockUTC(walk.endDate)} UTC`)
+  if (opts.placeName) lines.push(`- **Near:** [[${opts.placeName}]]`)
   lines.push('')
 
   const timeline = [
@@ -326,6 +327,10 @@ function renderBody(
       }
       lines.push('```', '')
     }
+  }
+
+  if (opts.placeName) {
+    lines.push('*Place name © OpenStreetMap contributors*', '')
   }
 
   return { body: lines.join('\n').trimEnd() + '\n', attachments, generatedFiles }

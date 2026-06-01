@@ -43,6 +43,7 @@ export interface WriterSettings {
   walksFolder: string
   provenance: RenderProvenance
   mapboxToken?: string
+  placeNames?: Map<string, string>
 }
 
 export interface ImportTally {
@@ -174,6 +175,7 @@ export async function writeWalkNotes(
       const rendered = renderWalk(walk, {
         provenance: settings.provenance,
         mapboxToken: settings.mapboxToken,
+        placeName: settings.placeNames?.get(walk.id),
       })
       const existing = index.get(walk.id) ?? null
       const existingContent = existing ? await app.vault.read(existing.file) : null

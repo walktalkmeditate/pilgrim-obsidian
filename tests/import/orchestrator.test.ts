@@ -60,6 +60,32 @@ describe('importPilgrim', () => {
     expect(second.dashboardCreated).toBe(false)
   })
 
+  it('adds a place backlink and fills the geocode cache when lookup is on (U6)', async () => {
+    // #given lookup enabled with a fake geocoder and an empty cache
+    const fake = makeFakeApp()
+    const cache: Record<string, string> = {}
+    let calls = 0
+
+    // #when imported
+    const summary = await importPilgrim(fake.app, await buildPilgrim(), {
+      ...SETTINGS,
+      lookupPlaceNames: true,
+      geocodeCache: cache,
+      geocode: async () => {
+        calls++
+        return 'Santiago'
+      },
+    })
+
+    // #then the note carries the backlink + attribution, and the cache is populated
+    expect(summary.created).toBe(1)
+    const note = [...fake.files.values()].find((c) => c.includes(`waymark-id: ${sampleWalk.id}`))!
+    expect(note).toContain('**Near:** [[Santiago]]')
+    expect(note).toContain('© OpenStreetMap contributors')
+    expect(Object.values(cache)).toContain('Santiago')
+    expect(calls).toBe(1)
+  })
+
   it('creates a note for each of multiple non-archived walks', async () => {
     // #given an archive with two distinct walks (and no archived/edits)
     const fake = makeFakeApp()

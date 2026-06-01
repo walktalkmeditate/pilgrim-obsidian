@@ -1,7 +1,17 @@
-import { Notice, Plugin } from 'obsidian'
+import { Notice, Plugin, requestUrl } from 'obsidian'
 import { importPilgrim, summaryMessage, type ImportSummary } from './import/orchestrator'
+import { nominatimUrl, parseNominatim } from './import/geocode'
 import { DEFAULT_SETTINGS, WaymarkSettingTab, type WaymarkSettings } from './settings'
 import type { AppLike } from './vault/writer'
+
+const GEOCODE_TIMEOUT_MS = 8000
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('geocode timeout')), ms)),
+  ])
+}
 
 // Obsidian requires the plugin entry point to be a default export extending
 // Plugin. Every other module in this codebase uses named exports.
@@ -49,10 +59,29 @@ export default class WaymarkPlugin extends Plugin {
       mapboxToken: this.settings.mapboxToken,
       lookupPlaceNames: this.settings.lookupPlaceNames,
       geocodeCache: this.settings.geocodeCache,
+      geocode: (lat, lng) => this.reverseGeocode(lat, lng),
     })
     // The geocode step mutates settings.geocodeCache in place — persist it.
     await this.saveSettings()
     return summary
+  }
+
+  // Reverse-geocode via Nominatim. Sends an explicit User-Agent (their policy
+  // requires one), races a timeout because requestUrl exposes no abort, and
+  // returns null on any failure so the import never blocks on the network.
+  private async reverseGeocode(lat: number, lng: number): Promise<string | null> {
+    try {
+      const response = await withTimeout(
+        requestUrl({
+          url: nominatimUrl(lat, lng),
+          headers: { 'User-Agent': `Waymark/${this.manifest.version} (Obsidian plugin)` },
+        }),
+        GEOCODE_TIMEOUT_MS,
+      )
+      return parseNominatim(response.json)
+    } catch {
+      return null
+    }
   }
 
   private async runImport(file: File): Promise<void> {
