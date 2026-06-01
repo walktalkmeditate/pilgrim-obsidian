@@ -153,6 +153,33 @@ describe('applyWalkMods', () => {
     ])
     expect(result?.voiceRecordings).toHaveLength(0)
   })
+
+  it('deletes a photo by localIdentifier and clears the array when empty', async () => {
+    // #given a walk with two photos
+    const walk = await walkFrom()
+    walk.photos = [
+      { localIdentifier: 'A', capturedAt: new Date(), lat: 1, lng: 1, url: 'a' },
+      { localIdentifier: 'B', capturedAt: new Date(), lat: 1, lng: 1, url: 'b' },
+    ]
+    // #when one is deleted #then the other remains
+    const oneLeft = applyWalkMods(walk, [mod('delete_photo', walk.id, { localIdentifier: 'A' })])
+    expect(oneLeft?.photos?.map((p) => p.localIdentifier)).toEqual(['B'])
+
+    // #and when the last photo is deleted #then photos becomes undefined (not [])
+    const walk2 = await walkFrom()
+    walk2.photos = [{ localIdentifier: 'only', capturedAt: new Date(), lat: 1, lng: 1, url: 'o' }]
+    const none = applyWalkMods(walk2, [mod('delete_photo', walk2.id, { localIdentifier: 'only' })])
+    expect(none?.photos).toBeUndefined()
+  })
+
+  it('removes each deletable section (intention, weather, celestial)', async () => {
+    // #given delete_section mods for each section #then that field is cleared
+    for (const section of ['intention', 'weather', 'celestial'] as const) {
+      const walk = await walkFrom()
+      const result = applyWalkMods(walk, [mod('delete_section', walk.id, { section })])
+      expect((result as unknown as Record<string, unknown>)[section]).toBeUndefined()
+    }
+  })
 })
 
 describe('archivedWalkIds', () => {

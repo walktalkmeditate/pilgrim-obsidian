@@ -1,4 +1,5 @@
 import type { VoiceRecording, Walk } from '../parse/types'
+import type { FrontmatterValue } from '../shared'
 
 export interface RenderProvenance {
   schemaVersion: string
@@ -9,8 +10,6 @@ export interface RenderProvenance {
 export interface RenderOptions {
   provenance: RenderProvenance
 }
-
-export type FrontmatterValue = string | number | boolean
 
 // A photo to materialize in the vault. `sourceToken` is the value the parse
 // layer's urlFactory returned for this photo's blob (U6 maps it back to bytes);
@@ -129,11 +128,15 @@ function renderBody(walk: Walk): { body: string; attachments: AttachmentRef[] } 
 
   if (walk.photos && walk.photos.length > 0) {
     lines.push('## Photos', '')
-    walk.photos.forEach((photo, i) => {
-      const fileName = `waymark-${walk.id}-${i + 1}.jpg`
+    for (const photo of walk.photos) {
+      // Name attachments by the photo's stable identity, not array position, so
+      // deleting or reordering a photo never re-maps a later one onto an
+      // existing file (which the existence check would then leave stale).
+      const safeId = photo.localIdentifier.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+      const fileName = `waymark-${walk.id}-${safeId}.jpg`
       attachments.push({ sourceToken: photo.url, fileName })
       lines.push(`![[${fileName}]]`)
-    })
+    }
     lines.push('')
   }
 

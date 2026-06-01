@@ -89,9 +89,8 @@ function uniqueNotePath(app: AppLike, folder: string, title: string): string {
   return path
 }
 
-// Write photo blobs at deterministic paths, skipping any that already exist.
-// Deterministic names + existence check make re-import idempotent (no " 1.jpg"
-// duplicates that getAvailablePathForAttachment would create on collision).
+// Deterministic, existence-checked filenames make re-import idempotent — no
+// " 1.jpg" duplicates that getAvailablePathForAttachment would create on collision.
 async function writeAttachments(
   app: AppLike,
   attachments: AttachmentRef[],

@@ -1,4 +1,4 @@
-import type { FrontmatterValue } from '../render/walk-note'
+import type { FrontmatterValue } from '../shared'
 
 export type MergeDecision = 'created' | 'updated' | 'skipped-edited' | 'skipped-no-markers'
 

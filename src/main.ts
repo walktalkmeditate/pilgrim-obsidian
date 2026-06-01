@@ -1,9 +1,7 @@
 import { Notice, Plugin } from 'obsidian'
-import { importPilgrim, summaryMessage, type ImportSettings } from './import/orchestrator'
+import { importPilgrim, summaryMessage, type ImportSummary } from './import/orchestrator'
 import { DEFAULT_SETTINGS, WaymarkSettingTab, type WaymarkSettings } from './settings'
 import type { AppLike } from './vault/writer'
-
-const WAYMARK_VERSION = '0.1.0'
 
 // Obsidian requires the plugin entry point to be a default export extending
 // Plugin. Every other module in this codebase uses named exports.
@@ -42,15 +40,19 @@ export default class WaymarkPlugin extends Plugin {
     input.click()
   }
 
+  // Import a .pilgrim archive's bytes into the vault. Public so other plugins,
+  // scripts, or tests can drive an import without going through the file picker.
+  importBuffer(buffer: ArrayBuffer): Promise<ImportSummary> {
+    return importPilgrim(this.app as unknown as AppLike, buffer, {
+      walksFolder: this.settings.walksFolder,
+      waymarkVersion: this.manifest.version,
+    })
+  }
+
   private async runImport(file: File): Promise<void> {
     const notice = new Notice(`Importing ${file.name}…`, 0)
     try {
-      const buffer = await file.arrayBuffer()
-      const settings: ImportSettings = {
-        walksFolder: this.settings.walksFolder,
-        waymarkVersion: WAYMARK_VERSION,
-      }
-      const summary = await importPilgrim(this.app as unknown as AppLike, buffer, settings)
+      const summary = await this.importBuffer(await file.arrayBuffer())
       notice.setMessage(summaryMessage(summary))
       if (summary.skippedEdited.length > 0) {
         new Notice(`Not updated (edited since import): ${summary.skippedEdited.join(', ')}`, 10000)

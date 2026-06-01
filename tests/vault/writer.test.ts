@@ -110,4 +110,22 @@ describe('writeWalkNotes', () => {
     expect(tally.created).toBe(1)
     expect(fake.mdCount()).toBe(1)
   })
+
+  it('writes the note but skips a photo whose bytes are missing', async () => {
+    // #given a walk with a photo but no bytes provided for its token
+    const fake = makeFakeApp()
+    const walk = await walkFrom()
+    walk.photos = [
+      { localIdentifier: 'p1', capturedAt: new Date(1710001000 * 1000), lat: 1, lng: 1, url: 'missing' },
+    ]
+
+    // #when imported with an empty photoBytes map
+    const tally = await writeWalkNotes(fake.app, [walk], new Map(), SETTINGS)
+
+    // #then the note is still created, no binary is written, and the embed is present
+    expect(tally.created).toBe(1)
+    expect(fake.binaryCount()).toBe(0)
+    const content = [...fake.files.values()].find((c) => c.includes('waymark-id'))!
+    expect(content).toContain('![[waymark-')
+  })
 })

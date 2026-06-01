@@ -89,27 +89,57 @@ describe('renderWalk', () => {
     expect(body).toContain('## On this walk')
   })
 
-  it('emits filename-based embeds and attachment refs for photos', async () => {
-    // #given a walk carrying two photos
+  it('emits id-based embeds and attachment refs for photos', async () => {
+    // #given a walk carrying two photos with stable identifiers
     const walk = await walkFrom()
-    const photo = (token: string): WalkPhoto => ({
-      localIdentifier: token,
+    const photo = (id: string): WalkPhoto => ({
+      localIdentifier: id,
       capturedAt: new Date(1710001000 * 1000),
       lat: 42.88,
       lng: -8.51,
-      url: token,
+      url: id,
     })
-    walk.photos = [photo('tok-1'), photo('tok-2')]
+    walk.photos = [photo('alpha'), photo('gamma')]
 
     // #when rendered
     const rendered = renderWalk(walk, OPTS)
 
-    // #then deterministic filenames are embedded and mapped back to their source tokens
+    // #then filenames derive from the photo identity (not array position)
     expect(rendered.attachments).toEqual([
-      { sourceToken: 'tok-1', fileName: `waymark-${walk.id}-1.jpg` },
-      { sourceToken: 'tok-2', fileName: `waymark-${walk.id}-2.jpg` },
+      { sourceToken: 'alpha', fileName: `waymark-${walk.id}-alpha.jpg` },
+      { sourceToken: 'gamma', fileName: `waymark-${walk.id}-gamma.jpg` },
     ])
-    expect(rendered.body).toContain(`![[waymark-${walk.id}-1.jpg]]`)
-    expect(rendered.body).toContain(`![[waymark-${walk.id}-2.jpg]]`)
+    expect(rendered.body).toContain(`![[waymark-${walk.id}-alpha.jpg]]`)
+    expect(rendered.body).toContain(`![[waymark-${walk.id}-gamma.jpg]]`)
+  })
+
+  it('keeps a photo filename stable when an earlier photo is removed', async () => {
+    // #given a walk and a helper for photos
+    const walk = await walkFrom()
+    const photo = (id: string): WalkPhoto => ({
+      localIdentifier: id,
+      capturedAt: new Date(1710001000 * 1000),
+      lat: 1,
+      lng: 1,
+      url: id,
+    })
+
+    // #when gamma is rendered among three photos, then again after beta is removed
+    walk.photos = [photo('alpha'), photo('beta'), photo('gamma')]
+    const before = renderWalk(walk, OPTS).attachments.find((a) => a.sourceToken === 'gamma')!.fileName
+    walk.photos = [photo('alpha'), photo('gamma')]
+    const after = renderWalk(walk, OPTS).attachments.find((a) => a.sourceToken === 'gamma')!.fileName
+
+    // #then gamma's attachment filename is unchanged (no index re-mapping)
+    expect(after).toBe(before)
+  })
+
+  it('uses a generic heading for a styleless written reflection', async () => {
+    // #given a reflection with text but no style
+    const walk = await walkFrom()
+    walk.reflection = { text: 'A plain written reflection' }
+
+    // #when rendered #then it falls back to the generic heading
+    expect(renderWalk(walk, OPTS).body).toContain('## Written reflection')
   })
 })

@@ -73,6 +73,8 @@ describe('parsePilgrim', () => {
 
   it('handles a voice recording with no transcription', async () => {
     // #given a recording missing its transcription
+    // any: a raw fixture clone we mutate by deleting/replacing nested fields;
+    // unknown would force a cast on every nested access in these tests.
     const walk = structuredClone(sampleWalk) as Record<string, any>
     walk.id = 'no-transcription-walk'
     delete walk.voiceRecordings[0].transcription
@@ -86,6 +88,8 @@ describe('parsePilgrim', () => {
 
   it('preserves every voice recording on a multi-recording walk', async () => {
     // #given a walk with two recordings
+    // any: a raw fixture clone we mutate by deleting/replacing nested fields;
+    // unknown would force a cast on every nested access in these tests.
     const walk = structuredClone(sampleWalk) as Record<string, any>
     walk.id = 'multi-rec-walk'
     walk.voiceRecordings = [

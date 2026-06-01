@@ -19,7 +19,10 @@ function epochSeconds(d: Date): number {
   return Math.floor(d.getTime() / 1000)
 }
 
-function collectDeleteKeys(mods: Modification[], op: Modification['op']): Set<number | string> {
+function collectDeleteKeys(
+  mods: Modification[],
+  op: 'delete_photo' | 'delete_voice_recording',
+): Set<number | string> {
   const keys = new Set<number | string>()
   for (const m of mods) {
     if (m.op !== op) continue

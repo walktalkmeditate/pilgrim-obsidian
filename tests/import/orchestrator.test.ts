@@ -106,4 +106,14 @@ describe('summaryMessage', () => {
     const msg = summaryMessage({ ...base, totalWalks: 1, updated: 1, skippedNoMarkers: ['Walk X'] })
     expect(msg).toContain('1 skipped — markers missing')
   })
+
+  it('reports failed walks', () => {
+    const msg = summaryMessage({ ...base, totalWalks: 2, created: 1, failed: ['walk-x'] })
+    expect(msg).toContain('1 failed')
+  })
+
+  it('reports archived alongside imported walks', () => {
+    const msg = summaryMessage({ ...base, totalWalks: 2, created: 1, archivedSkipped: 1 })
+    expect(msg).toContain('1 archived')
+  })
 })
