@@ -1,4 +1,4 @@
-import JSZip from 'jszip'
+import { unzipSync, strFromU8 } from 'fflate'
 import type {
   Walk,
   WalkPhoto,
@@ -388,20 +388,20 @@ export async function parsePilgrim(
   const urlFactory = options?.urlFactory ?? ((blob: Blob) => URL.createObjectURL(blob))
   const urlRevoker = options?.urlRevoker ?? ((url: string) => URL.revokeObjectURL(url))
 
-  let zip: JSZip
+  let entries: Record<string, Uint8Array>
 
   try {
-    zip = await JSZip.loadAsync(buffer)
+    entries = unzipSync(new Uint8Array(buffer))
   } catch {
     throw new Error('Failed to parse ZIP: invalid .pilgrim file')
   }
 
-  const manifestFile = zip.file('manifest.json')
-  if (!manifestFile) {
+  const manifestBytes = entries['manifest.json']
+  if (!manifestBytes) {
     throw new Error('Failed to parse .pilgrim file: missing manifest.json')
   }
 
-  const manifestText = await manifestFile.async('text')
+  const manifestText = strFromU8(manifestBytes)
   const manifestRaw = JSON.parse(manifestText)
   const manifest: PilgrimManifest = {
     schemaVersion: manifestRaw.schemaVersion,
@@ -426,29 +426,29 @@ export async function parsePilgrim(
   let committed = false
 
   try {
-    const photoFiles = zip.file(/^photos\/[^/]+\.(jpg|jpeg)$/i)
-    for (const file of photoFiles) {
+    const photoPattern = /^photos\/[^/]+\.(jpg|jpeg)$/i
+    for (const name of Object.keys(entries)) {
+      if (!photoPattern.test(name)) continue
       try {
-        const blob = await file.async('blob')
-        const filename = file.name.replace(/^photos\//, '')
+        const blob = new Blob([entries[name] as BlobPart])
+        const filename = name.replace(/^photos\//, '')
         const url = urlFactory(blob)
         photoUrls.set(filename, url)
         createdUrls.push(url)
       } catch (err) {
-        // A single corrupt photo entry shouldn't fail the whole parse —
-        // drop it and keep going so the walks + remaining photos still
-        // render.
-        console.warn(`[parsePilgrim] Failed to extract ${file.name}:`, err)
+        // A single bad photo entry shouldn't fail the whole parse — drop it
+        // and keep going so the walks + remaining photos still render.
+        console.warn(`[parsePilgrim] Failed to extract ${name}:`, err)
       }
     }
 
-    const walkFiles = zip.file(/^walks\/.*\.json$/)
+    const walkPattern = /^walks\/.*\.json$/
     const walks: Walk[] = []
     const rawWalks: unknown[] = []
 
-    for (const file of walkFiles) {
-      const text = await file.async('text')
-      const walkRaw = JSON.parse(text)
+    for (const name of Object.keys(entries)) {
+      if (!walkPattern.test(name)) continue
+      const walkRaw = JSON.parse(strFromU8(entries[name]))
       rawWalks.push(walkRaw)
       walks.push(parsePilgrimWalkJSON(walkRaw, photoUrls))
     }

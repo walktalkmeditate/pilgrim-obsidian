@@ -1,7 +1,7 @@
 {
   "id": "waymark",
   "name": "Waymark",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "minAppVersion": "1.4.0",
   "description": "Import your Pilgrim walks (.pilgrim) as linkable Markdown notes — your transcribed voice reflections become searchable, linkable text, with stats, waypoints, weather, and an optional route map.",
   "author": "walk · talk · meditate",
